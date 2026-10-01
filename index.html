@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Broadway Corridor Massing Tool — Vancouver</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --vellum:#EEF1F3; --sheet:#F8F9FA; --ink:#1F2A33; --ink-2:#4B5763; --rule:#C9D1D8;
+    --proposed:#2F6F9F; --proposed-2:#9CC3DD; --existing:#B7B0A6; --park:#7FAF6E; --ring:#D8462B;
+    --mono-ink:#334155;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--vellum);color:var(--ink);font-family:'Archivo',system-ui,sans-serif;font-size:14px;line-height:1.45}
+  button,input,select{font:inherit;color:inherit}
+  .app{display:grid;grid-template-columns:380px 1fr;height:100vh}
+  aside{background:var(--sheet);border-right:1px solid var(--rule);display:flex;flex-direction:column;overflow:hidden}
+  header{padding:20px 22px 14px;border-bottom:1px solid var(--rule)}
+  header h1{margin:0;font-size:22px;font-weight:600;font-stretch:85%;letter-spacing:-.01em;line-height:1.1}
+  header p{margin:6px 0 0;color:var(--ink-2);font-size:13px}
+  .scroll{overflow:auto;padding:16px 22px 28px;flex:1}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12.5px;color:var(--ink-2);margin-bottom:5px}
+  .search{display:flex;gap:6px}
+  .search input{flex:1;padding:10px 12px;border:1px solid var(--rule);border-radius:4px;background:#fff;outline:none}
+  .search input:focus{border-color:var(--proposed);box-shadow:0 0 0 3px rgba(47,111,159,.18)}
+  .btn{padding:10px 14px;border:1px solid var(--ink);background:var(--ink);color:#fff;border-radius:4px;cursor:pointer}
+  .btn.quiet{background:transparent;color:var(--ink);border-color:var(--rule)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn:focus-visible,.search input:focus-visible,input[type=range]:focus-visible{outline:2px solid var(--proposed);outline-offset:2px}
+  .candidates{margin:6px 0 0;padding:0;list-style:none;border:1px solid var(--rule);border-radius:4px;background:#fff;display:none;max-height:180px;overflow:auto}
+  .candidates li{padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--rule)}
+  .candidates li:last-child{border-bottom:0}
+  .candidates li:hover{background:var(--vellum)}
+  .status{font-size:12.5px;color:var(--ink-2);min-height:18px;margin:6px 0 10px}
+  .status.err{color:var(--ring)}
+  h2{font-size:12.5px;font-weight:600;color:var(--ink-2);margin:22px 0 8px;padding-top:14px;border-top:1px solid var(--rule)}
+  .slider{display:grid;grid-template-columns:1fr 64px;gap:10px;align-items:center;margin-bottom:10px}
+  .slider label{font-size:13px;grid-column:1/-1;margin:0;color:var(--ink)}
+  .slider label span{color:var(--ink-2)}
+  input[type=range]{width:100%;accent-color:var(--proposed)}
+  .slider output{font-variant-numeric:tabular-nums;text-align:right;font-size:13px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+  .stat b{display:block;font-size:20px;font-weight:600;font-stretch:90%;font-variant-numeric:tabular-nums;line-height:1.1}
+  .stat span{font-size:12px;color:var(--ink-2)}
+  .plan{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--proposed);padding:10px 12px;border-radius:4px;font-size:13px}
+  .plan b{font-weight:600}
+  .plan small{display:block;color:var(--ink-2);margin-top:6px;font-size:12px}
+  .plan.outside{border-left-color:var(--existing)}
+  ul.ctx{list-style:none;margin:0;padding:0;font-size:13px}
+  ul.ctx li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--rule)}
+  ul.ctx li span:last-child{color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:-1px}
+  .sel,.num{width:100%;padding:9px 10px;border:1px solid var(--rule);border-radius:4px;background:#fff}
+  .num:disabled{background:var(--vellum);color:var(--ink-2)}
+  .pzgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .fsrtrack{position:relative;height:14px;background:var(--vellum);border:1px solid var(--rule);border-radius:3px;overflow:visible}
+  .fsrtrack i{position:absolute;left:0;top:0;bottom:0;background:var(--proposed);border-radius:2px;max-width:100%}
+  .fsrtrack i.over{background:var(--ring)}
+  .fsrtrack b{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+  .fsrlab{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2);margin-top:4px;font-variant-numeric:tabular-nums}
+  .check{display:flex;gap:8px;align-items:center;font-size:13px;margin:4px 0 6px;color:var(--ink)}
+  .check input{accent-color:var(--proposed);width:16px;height:16px}
+  .hrow{display:grid;grid-template-columns:1fr 46px;align-items:center;font-size:12.5px;margin-bottom:6px}
+  .hrow span{grid-column:1/-1;color:var(--ink-2)}
+  .hrow i{display:block;height:8px;border-radius:2px;min-width:2px}
+  .hrow b{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+  .prof{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px;align-items:end}
+  .prof div{display:flex;flex-direction:column;align-items:center;font-size:11.5px;color:var(--ink-2)}
+  .prof i{display:block;width:100%;border-radius:2px 2px 0 0}
+  .prof b{color:var(--ink);font-weight:600}
+  .balabel{position:absolute;transform:translate(-50%,-100%);background:rgba(251,251,249,.95);border:1px solid var(--rule);border-radius:3px;padding:5px 9px;font-size:11.5px;pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .balabel b{display:block;font-size:12px}
+  .insp h3{margin:0 0 4px;font-size:14px;font-weight:600}
+  .insp .row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:4px 0;border-bottom:1px dashed var(--rule)}
+  .insp .row span:last-child{color:var(--ink-2);text-align:right}
+  .insp ul{margin:4px 0 8px;padding-left:16px;font-size:12.5px}
+  .insp .ba{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+  .insp .ba div{border:1px solid var(--rule);border-radius:4px;padding:8px;font-size:12px}
+  .insp .ba b{display:block;font-size:13px;margin-bottom:2px}
+  main{position:relative;overflow:hidden;background:linear-gradient(180deg,#F4F6F8 0%,#FBFBFA 55%,#F1F3F5 100%)}
+  main::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 120px rgba(31,42,51,.06)}
+  .north{position:absolute;left:14px;bottom:14px;display:flex;flex-direction:column;align-items:center;font-size:11px;font-weight:600;color:var(--ink);background:rgba(251,251,249,.9);border:1px solid var(--rule);border-radius:4px;padding:6px 8px 4px}
+  .north svg{display:block}
+  .scalebar{position:absolute;left:78px;bottom:14px;background:rgba(251,251,249,.9);border:1px solid var(--rule);border-radius:4px;padding:8px 10px;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  .scalebar i{display:block;height:6px;width:80px;background:repeating-linear-gradient(90deg,var(--ink) 0 25%,#fff 25% 50%);border:1px solid var(--ink)}
+  .hlabel{position:absolute;display:none;transform:translate(8px,-50%);background:var(--ink);color:#fff;font-size:11.5px;padding:3px 7px;border-radius:2px;font-variant-numeric:tabular-nums;pointer-events:none;white-space:nowrap}
+  .titleblock{position:absolute;right:14px;bottom:14px;width:300px;background:rgba(251,251,249,.94);border:1px solid var(--ink);border-radius:2px;font-size:12px}
+  .tb-row{display:grid;grid-template-columns:70px 1fr;gap:8px;padding:7px 10px;border-bottom:1px solid var(--rule)}
+  .tb-row span{color:var(--ink-2);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  .tb-row b{font-weight:500;font-variant-numeric:tabular-nums}
+  .tb-foot{padding:6px 10px;font-size:10.5px;color:var(--ink-2)}
+  @media (max-width:900px){ .titleblock{display:none!important} }
+  canvas{display:block}
+  .viewbar{position:absolute;top:14px;left:14px;display:flex;gap:6px;flex-wrap:wrap}
+  .viewbar .btn{padding:7px 11px;font-size:13px;background:rgba(248,249,250,.92);color:var(--ink);border-color:var(--rule)}
+  .viewbar .btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .legend{position:absolute;right:14px;top:56px;background:rgba(248,249,250,.92);border:1px solid var(--rule);border-radius:4px;padding:10px 12px;font-size:12.5px;display:grid;gap:5px}
+  .legend.ov{right:auto;left:14px;top:auto;bottom:62px;max-width:340px}
+  .legend.ov div span{color:var(--ink-2);margin-left:6px}
+  .viewbar .sep{width:1px;background:var(--rule);margin:0 4px}
+  .tip{position:absolute;pointer-events:none;background:var(--ink);color:#fff;padding:5px 8px;border-radius:3px;font-size:12px;transform:translate(10px,10px);display:none;white-space:nowrap}
+  .empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-2);text-align:center;padding:30px;pointer-events:none}
+  .empty p{max-width:36ch;margin:0;font-size:15px}
+  .note{font-size:12px;color:var(--ink-2);margin-top:8px}
+  .note a{color:var(--proposed)}
+  @media (max-width:900px){
+    .app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+    aside{max-height:52vh;border-right:0;border-bottom:1px solid var(--rule)}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside>
+  <header>
+    <h1>Broadway Corridor massing tool</h1>
+    <p>Test a building envelope on any Vancouver lot with up to 1 km of surrounding buildings, parks, streets and zoning. Ctrl+Z undoes, Ctrl+Shift+Z redoes.</p>
+  </header>
+  <div class="scroll">
+    <div class="field">
+      <label for="addr">Address</label>
+      <div class="search">
+        <input id="addr" placeholder="e.g. 2210 Main St" autocomplete="off">
+        <button class="btn" id="go">Look up</button>
+      </div>
+      <ul class="candidates" id="cands"></ul>
+      <div class="status" id="status"></div>
+      <button class="btn quiet" id="sample" style="width:100%">Load a sample site instead</button>
+    </div>
+
+    <h2>Lot inspector</h2>
+    <div id="inspector"><p class="note" style="margin:0">Switch to “Click: inspect lot” in the view bar, then click a parcel for its district and permitted uses, or click a building to check or correct its height.</p></div>
+
+    <h2>Broadway Plan context</h2>
+    <div class="plan" id="plan">Look up an address to see where it sits in the plan.</div>
+
+    <h2>Massing</h2>
+    <div class="field"><label for="ctxcolor">Colour existing buildings by</label><select id="ctxcolor" class="sel"><option value="height" selected>Height band</option><option value="zone">Zoning district</option><option value="use">Land-use class</option></select></div>
+    <div class="slider"><label>Tower storeys <span id="ts-max"></span></label><input type="range" id="ts" min="0" max="45" value="20"><output id="ts-o">20</output></div>
+    <div class="slider"><label>Podium storeys</label><input type="range" id="ps" min="0" max="8" value="4"><output id="ps-o">4</output></div>
+    <div class="slider"><label>Floor-to-floor (m)</label><input type="range" id="ff" min="2.8" max="4.5" step="0.1" value="3.0"><output id="ff-o">3.0</output></div>
+    <div class="slider"><label>Podium setback from lot line (m)</label><input type="range" id="sb" min="0" max="8" step="0.5" value="1.5"><output id="sb-o">1.5</output></div>
+    <div class="slider"><label>Tower floor plate (m²)</label><input type="range" id="fp" min="300" max="900" step="10" value="650"><output id="fp-o">650</output></div>
+    <div class="slider"><label>Context radius (m) <span>30 m detail · up to 1 km</span></label><input type="range" id="rad" min="30" max="1000" step="10" value="1000"><output id="rad-o">1000</output></div>
+    <div class="field" style="margin-top:6px"><label for="hfield">Building height field <span style="color:var(--ink-2)">(leave blank to auto-detect)</span></label><input id="hfield" class="num" placeholder="auto: hgt_agl from the 2009 layer" autocomplete="off" spellcheck="false"><div class="status" id="hfield-status" style="margin:4px 0 0"></div></div>
+
+
+    <h2>Site assembly</h2>
+    <p class="note" style="margin:0 0 8px">Combine parcels three ways: click lots in the 3D view (click again to remove), type another civic address below, or add every lot touching the current site. The massing, site area and FSR use the combined site.</p>
+    <div class="search"><input id="asm-addr" placeholder="Add a parcel by address, e.g. 2412 Main St" autocomplete="off"><button class="btn quiet" id="asm-add">Add</button></div>
+    <div style="display:flex;gap:6px;margin-top:6px"><button class="btn quiet" id="asm-adj" style="flex:1">Add adjacent lots</button><button class="btn quiet" id="asm-clear" style="flex:1">Clear site</button></div>
+    <div id="asm" style="margin-top:8px"></div>
+
+    <h2>Proposed zoning</h2>
+    <div class="field">
+      <label for="pz">Test the site under</label>
+      <select id="pz" class="sel"></select>
+    </div>
+    <div class="pzgrid">
+      <div class="field"><label for="pz-fsr">Max FSR</label><input id="pz-fsr" type="number" step="0.1" min="0.1" max="15" class="num" disabled></div>
+      <div class="field"><label for="pz-h">Max height (m)</label><input id="pz-h" type="number" step="0.5" min="3" max="200" class="num" disabled></div>
+    </div>
+    <div class="field"><label for="program">Program / use mix for the proposal</label><select id="program" class="sel">
+      <option value="rental" selected>Secured market rental (residential)</option>
+      <option value="rental-bm">Secured rental with 20% below-market</option>
+      <option value="strata">Strata residential (with social-housing share)</option>
+      <option value="mixed">Mixed-use: commercial at grade + residential</option>
+      <option value="office">Office / job space with retail at grade</option>
+      <option value="social">Social housing partnership (non-profit)</option>
+      <option value="hotel">Hotel with retail at grade</option>
+      <option value="inst">Institutional / community (hospital, school, cultural)</option>
+    </select></div>
+    <p class="note" id="pz-note" style="margin:0 0 10px"></p>
+    <div class="fsrbar"><div class="fsrtrack"><i id="fsr-used"></i><b id="fsr-cap"></b></div><div class="fsrlab"><span id="fsr-l">—</span><span id="fsr-r">—</span></div></div>
+    <button class="btn quiet" id="fit" style="width:100%;margin-top:8px">Size massing to the FSR cap</button>
+
+    <h2>Results</h2>
+    <div id="program-out" class="note" style="margin:0 0 8px"></div>
+    <div class="stats" id="stats">
+      <div class="stat"><b id="s-area">—</b><span>site area m²</span></div>
+      <div class="stat"><b id="s-h">—</b><span>height m</span></div>
+      <div class="stat"><b id="s-gfa">—</b><span>gross floor area m²</span></div>
+      <div class="stat"><b id="s-fsr">—</b><span>FSR</span></div>
+    </div>
+
+    <h2>Height check</h2>
+    <div id="hcheck"><p class="note" style="margin:0">Compares your massing to measured neighbour heights, the zoning district limit and the Broadway Plan tier.</p></div>
+
+    <p class="note">Data: City of Vancouver Open Data (parcels, 2015 building outlines, 2009 LiDAR-derived building heights, streets, parks, zoning). Broadway Plan tiers are an indicative summary of published policy and 2024 amendments, not a rezoning determination — confirm against the current plan and the R3/R4/R5 rental districts at <a href="https://vancouver.ca/home-property-development/broadway-plan.aspx" target="_blank" rel="noopener">vancouver.ca</a>.</p>
+  </div>
+</aside>
+<main id="main">
+  <div class="viewbar">
+    <button class="btn on" id="v3d">Perspective</button>
+    <button class="btn" id="vaxo">Axonometric</button>
+    <button class="btn" id="vplan">Plan</button>
+    <button class="btn" id="vshade">Shadow (Sep equinox, noon)</button>
+    <button class="btn" id="vba" title="Existing zoning envelope vs pre-zoned / rezoned envelope on the site">Before / After</button>
+    <span class="sep"></span>
+    <button class="btn on" id="modeasm" data-mode="assemble">Click: assemble site</button>
+    <button class="btn" id="modeinsp" data-mode="inspect">Click: inspect lot</button>
+    <span class="sep"></span>
+    <button class="btn on" id="ovnone" data-ov="none">No overlay</button>
+    <button class="btn" id="ovpre" data-ov="prezoned" title="Pre-zoned R3/R4/R5 lots tinted on the ground, with translucent boxes to each district’s height cap">Pre-zoned R3/R4/R5</button>
+    <button class="btn" id="ovh" data-ov="planH">Plan heights</button>
+    <button class="btn" id="ovfsr" data-ov="planFSR">Plan FSR</button>
+    <button class="btn" id="ovenvp" data-ov="envPlan" title="As above, with Broadway Plan tiers for lots not yet pre-zoned">Plan envelopes</button>
+  </div>
+  <div class="legend ov" id="ovlegend" style="display:none"></div>
+  <div class="north" id="north"><svg viewBox="0 0 40 40" width="40" height="40"><g id="northrot"><polygon points="20,4 26,26 20,22 14,26" fill="#1F2A33"/><polygon points="20,22 26,26 20,36 14,26" fill="#fff" stroke="#1F2A33" stroke-width="1"/></g></svg><span>N</span></div>
+  <div class="scalebar" id="scalebar"><i></i><span id="scaletxt">30 m</span></div>
+  <div class="hlabel" id="hlabel"></div>
+  <div id="balabels"></div>
+  <div id="pzlabels"></div>
+  <div class="titleblock" id="titleblock" style="display:none">
+    <div class="tb-row"><span>Project</span><b id="tb-addr">—</b></div>
+    <div class="tb-row"><span>Massing</span><b id="tb-mass">—</b></div>
+    <div class="tb-row"><span>Density</span><b id="tb-fsr">—</b></div>
+    <div class="tb-row"><span>Context</span><b id="tb-ctx">—</b></div>
+    <div class="tb-foot">Massing study · not to scale for construction · sources: City of Vancouver Open Data</div>
+  </div>
+  <div class="legend">
+    <div><i class="sw" style="background:#3B7EAF"></i>Proposed massing</div>
+    <div id="ctxlegend" style="display:contents"><div><i class="sw" style="background:#F4F1EB;border:1px solid #C9D1D8"></i>Existing under 12 m</div><div><i class="sw" style="background:#E6E1D8"></i>Existing 12–30 m</div><div><i class="sw" style="background:#D3CCC0"></i>Existing 30–60 m</div><div><i class="sw" style="background:#BDB4A6"></i>Existing 60 m and up</div></div>
+    <div><i class="sw" style="background:#D5E6C8"></i>Park</div>
+    <div><i class="sw" style="background:transparent;border-bottom:2px solid #8C7A5C;height:0;border-radius:0"></i>Contours (major every 5th)</div>
+    <div><i class="sw" style="background:transparent;border:2px dashed var(--ring)"></i>Context radius</div>
+  </div>
+  <div class="tip" id="tip"></div>
+  <div class="empty" id="empty"><p>Enter an address to draw the lot, its neighbours and a test massing.</p></div>
+</main>
+</div>
+
+<script>
+/* ---------------- data ---------------- */
+const ODS = 'https://opendata.vancouver.ca/api/explore/v2.1/catalog/datasets/';
+const $ = id => document.getElementById(id);
+const state = { site:null, parcel:null, buildings:[], parks:[], zoning:[], plan:null, grade:null, streets:[] };
+
+async function ods(ds, params){
+  const u = new URL(ODS + ds + '/records');
+  Object.entries(params).forEach(([k,v]) => u.searchParams.set(k,v));
+  const r = await fetch(u);
+  if(!r.ok) throw new Error(`${ds}: HTTP ${r.status}`);
+  return (await r.json()).results || [];
+}
+// page through a where-clause (API returns max 100 per call, 10 000 total)
+async function odsAll(ds, where, cap=6000, onPage){
+  const u = new URL(ODS + ds + '/records'); u.searchParams.set('where',where); u.searchParams.set('limit',100);
+  const r = await fetch(u); if(!r.ok) throw new Error(`${ds}: HTTP ${r.status}`);
+  const j = await r.json(); let out = j.results||[]; const total=Math.min(j.total_count||out.length, cap, 10000);
+  const offsets=[]; for(let o=100;o<total;o+=100) offsets.push(o);
+  let done=0;
+  const pages = await Promise.all(offsets.map(async o=>{
+    const v=new URL(u); v.searchParams.set('offset',o); const rr=await fetch(v); done++; onPage&&onPage(done,offsets.length);
+    return rr.ok?((await rr.json()).results||[]):[];
+  }));
+  pages.forEach(p=>out=out.concat(p)); return out;
+}
+const pt = (lon,lat) => `geom'POINT(${lon} ${lat})'`;
+const geomOf = rec => (rec.geom && rec.geom.geometry) || rec.geometry || null;
+
+async function geocode(q){
+  let out=[], apiErr=null;
+  try{
+    const m = q.match(/^\s*(\d+)\s*[-–]?\s*\d*\s+(.+?)\s*,?\s*(vancouver.*)?$/i);
+    let where;
+    if(m){
+      const street = m[2].replace(/\b(street|st\.?)$/i,'ST').replace(/\b(avenue|ave\.?)$/i,'AVE')
+        .replace(/^(west|w\.?)\s/i,'W ').replace(/^(east|e\.?)\s/i,'E ').replace(/\bdrive$/i,'DR').replace(/\broad$/i,'RD')
+        .replace(/[^\w\s]/g,'').toUpperCase().trim();
+      where = `civic_number=${+m[1]} AND std_street like "${street}%"`;
+    } else where = `"${q.replace(/"/g,'')}"`;
+    const recs = await ods('property-addresses',{ where, limit:8 });
+    out = recs.map(r=>{
+      const g=geomOf(r); const p = r.geo_point_2d || (g&&g.type==='Point'&&{lon:g.coordinates[0],lat:g.coordinates[1]});
+      const label = r.full_address || [r.civic_number, r.std_street].filter(Boolean).join(' ');
+      return p && label ? {label, lon:p.lon, lat:p.lat} : null;
+    }).filter(Boolean);
+  }catch(e){ apiErr=e; console.warn(e); }
+  if(!out.length){
+    try{
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q+', Vancouver, BC')}`);
+      if(r.ok) out = (await r.json()).map(x=>({label:x.display_name.split(',').slice(0,2).join(','), lon:+x.lon, lat:+x.lat}));
+    }catch(e){ if(!apiErr) apiErr=e; }
+  }
+  if(!out.length && apiErr) throw new Error('address services unreachable — if you are viewing this inside the chat preview, download the file and open it in your browser. ('+apiErr.message+')');
+  return out;
+}
+
+async function loadContext(lon,lat,radius){
+  const w = `within_distance(geom, ${pt(lon,lat)}, ${radius}m)`;
+  const prog=(d,n)=>setStatus(`Loading buildings… ${Math.round(d/n*100)}%`);
+  const [parcel, bld, bld09, streets, parks, zon, lots] = await Promise.all([
+    ods('property-parcel-polygons',{ where:`intersects(geom, ${pt(lon,lat)})`, limit:1 }).catch(()=>[]),
+    odsAll('building-footprints-2015', w, 6000, prog).catch(e=>{console.warn(e);return [];}),
+    odsAll('building-footprints-2009', w, 6000).catch(e=>{console.warn(e);return [];}), // carries hgt_agl / topelev_m / baseelev_m
+    odsAll('public-streets', w, 2500).catch(e=>{console.warn(e);return [];}),
+    odsAll('parks-polygon-representation', w, 300).catch(e=>{console.warn(e);return [];}),
+    odsAll('zoning-districts-and-labels', w, 2000).catch(e=>{console.warn(e);return [];}),
+    odsAll('property-parcel-polygons', `within_distance(geom, ${pt(lon,lat)}, ${Math.min(radius,400)}m)`, 4000).catch(e=>{console.warn(e);return [];})
+  ]);
+  state.parcel = parcel[0] ? geomOf(parcel[0]) : null;
+  state.streets = streets.map(r=>{ const g=geomOf(r); if(!g) return null; const parts=g.type==='LineString'?[g.coordinates]:g.type==='MultiLineString'?g.coordinates:[]; const name=streetName(r); const use=String(r.streetuse||r.street_use||''); return parts.map(c=>({name,use,pts:c.map(([lo,la])=>toXY(lo,la))})); }).filter(Boolean).flat().filter(x=>x.pts.length>1);
+  state.lots = lots.map(l=>({ geom:geomOf(l), id:l.site_id||l.pid||l.civic_number||JSON.stringify((geomOf(l)||{}).coordinates||'').slice(0,40), addr:[l.civic_number,l.streetname||l.std_street].filter(Boolean).join(' ') })).filter(l=>l.geom);
+  state.selected = state.parcel ? [ {geom:state.parcel, id:'origin', addr:'Searched address'} ] : [];
+  heightFieldUsed=null; state.rawFields=bld[0]?Object.keys(bld[0]).filter(k=>k!=='geom'&&k!=='geometry'):[];
+  // 2015 outlines; heights from the outline's own fields if present, else transferred from the 2009 LiDAR-derived footprint under its centroid
+  const h09=bld09.map(b=>{ const g=geomOf(b); const r=g?rings(g)[0]:null; if(!r||r.length<3) return null; const h=heightOf(b); return isFinite(h)?{r,h,bb:[Math.min(...r.map(p=>p[0])),Math.min(...r.map(p=>p[1])),Math.max(...r.map(p=>p[0])),Math.max(...r.map(p=>p[1]))],roof:b.rooftype||b.ROOFTYPE||''}:null; }).filter(Boolean);
+  const from09=(r)=>{ const [cx,cy]=centroid(r); for(const o of h09){ if(cx<o.bb[0]||cx>o.bb[2]||cy<o.bb[1]||cy>o.bb[3]) continue; if(pointIn(o.r,cx,cy)) return o; } return null; };
+  let n15=0,n09=0;
+  state.buildings = bld.map(b=>{ const geom=geomOf(b); if(!geom) return null; let h=heightOf(b), src='City 2015 footprint', roof=b.rooftype||'';
+    let blob=false;
+    if(isFinite(h)) n15++; else { const r=rings(geom)[0]; const o=r?from09(r):null; if(o){ const a15=r?area(r):0, a09=area(o.r);
+        if(a09>Math.max(2500,3*a15)){ blob=true; h=Math.min(o.h,14); src='City 2015 outline · 2009 campus footprint (height uncertain, capped)'; } // one generalized 2009 polygon covering a campus: don't give every wing the tower's height
+        else { h=o.h; src='City 2015 outline · 2009 LiDAR height'; } roof=o.roof; n09++; } }
+    return { geom, h:isFinite(h)?h:8, known:isFinite(h)&&!blob, blob, roof, src, name:'Building' }; }).filter(Boolean);
+  // 2009 footprints with no 2015 outline over them (rare) are added so the block isn't empty — but not campus-scale blobs
+  const covered=(o)=>{ const [cx,cy]=centroid(o.r); return state.buildings.some(b=>{ const r=rings(b.geom)[0]; return r&&pointIn(r,cx,cy); }); };
+  h09.filter(o=>!covered(o)&&area(o.r)<6000).forEach(o=>{ state.buildings.push({ geom:{type:'Polygon',coordinates:[o.r.map(([x,y])=>{ const p=Math.PI/180,R=6371000; return [origin.lon+x/(R*Math.cos(origin.lat*p))/p, origin.lat+y/R/p]; })]}, h:o.h, known:true, roof:o.roof, src:'City 2009 footprint', name:'Building' }); });
+  { const known=state.buildings.filter(b=>b.known).length, tot=state.buildings.length; const el=$('hfield-status');
+    if(!tot) el.textContent='No footprints returned for this radius.';
+    else if(!known) el.textContent=`No heights found in the 2015 outlines (fields: ${state.rawFields.join(', ')}) or the 2009 footprint layer — all ${tot} buildings drawn at 8 m.`;
+    else el.textContent=`Heights: ${n15?n15+' from the 2015 layer, ':''}${n09} transferred from the 2009 LiDAR footprints (${heightFieldUsed||'hgt_agl'})${known<tot?`; ${tot-known} with no value drawn at 8 m`:''}.`; el.className='status'+(known?'':' err'); }
+  state.parks = parks.map(p=>({ geom:geomOf(p), name:p.park_name||p.name||'Park' })).filter(p=>p.geom);
+  state.zoning = zon.map(z=>({ geom:geomOf(z), code:z.zoning_district||'', cls:z.zoning_classification||'' }));
+  state.plan = broadwayTier(lon,lat);
+  zoneIndex=null; state.buildings.forEach(b=>{ delete b._zone; });
+  { const n=applyOverrides(); if(n) console.info(n,'building override(s) applied'); }
+}
+const HEIGHT_FIELDS=['hgt_agl','maxht_m','avght_m','height_m','height','bldg_height','bldg_hgt','max_height','avg_height','roof_height','hgt','ht_m'];
+let heightFieldUsed=null;
+function heightOf(b0){
+  const b={}; for(const k of Object.keys(b0)) b[k.toLowerCase()]=b0[k]; // field names vary in case between copies of the dataset
+  const custom=($('hfield').value||'').trim().toLowerCase(); if(custom){ const v=+b[custom]; if(isFinite(v)&&v>0){ heightFieldUsed=custom; return v; } if(/stor|floor|level/i.test(custom)&&isFinite(v)&&v>0){ heightFieldUsed=custom+' ×3.1'; return v*3.1; } }
+  for(const k of HEIGHT_FIELDS) if(isFinite(+b[k]) && +b[k]>0){ heightFieldUsed=k; return +b[k]; }
+  if(isFinite(+b.topelev_m)&&isFinite(+b.baseelev_m)){ heightFieldUsed='topelev_m − baseelev_m'; return Math.max(3,+b.topelev_m-+b.baseelev_m); }
+  // last resort: any numeric field whose name mentions height
+  for(const k of Object.keys(b)) if(/h(eigh)?t|elev/i.test(k)&&isFinite(+b[k])&&+b[k]>0&&+b[k]<400){ heightFieldUsed=k+' (guessed)'; return +b[k]; }
+  return NaN; // unknown: flagged, not guessed
+}
+const storeysOf = h => Math.max(1,Math.round(h/3.1));
+
+function bandColor(h){ return h<12?0xF4F1EB : h<30?0xE6E1D8 : h<60?0xD3CCC0 : 0xBDB4A6; }
+/* permitted uses by district family — condensed from the district schedules (approximate; outright vs conditional varies by sub-district) */
+const ZONE_USES=[
+  [/^(RS|R1)/,{outright:['One-family dwelling','Multiplex up to 6 units (R1-1)','Secondary suite','Laneway house'],conditional:['Community care facility','Child day care','Neighbourhood grocery (limited)','Institutional (church, school)']}],
+  [/^RT/,{outright:['Two-family dwelling / duplex','One-family dwelling','Secondary suite','Laneway or infill house'],conditional:['Multiple conversion dwelling','Small multiple dwelling','Community care','Child day care']}],
+  [/^RM/,{outright:['Multiple dwelling (apartment)','Townhouse / rowhouse','Seniors supportive housing'],conditional:['Neighbourhood grocery','Child day care','Community care facility','Office / retail in limited sub-districts']}],
+  [/^R3/,{outright:['Secured market rental apartments (up to 6–8 storeys)','Below-market rental (upper range)'],conditional:['Child day care','Neighbourhood grocery / café at grade','Live-work','Institutional']}],
+  [/^R4/,{outright:['Secured rental mid-rise (to ~12–15 storeys on arterials)','Below-market rental share'],conditional:['Retail / service at grade on arterials','Child day care','Institutional']}],
+  [/^R5/,{outright:['Secured rental high-rise (~20 storeys)','20% below-market rental'],conditional:['Commercial at grade where mapped','Child day care','Cultural / community uses']}],
+  [/^C-?\d|^C\d/,{outright:['Retail and service','Restaurant / café','Office','Residential above ground floor','Hotel (C-3A, larger C)','Institutional and cultural'],conditional:['Residential at grade (limited)','Liquor / entertainment','Manufacturing small-scale','Laboratory (C-3A)']}],
+  [/^CD/,{outright:['As enacted in the site’s own CD-1 by-law'],conditional:['Check the numbered CD-1 by-law for the schedule of uses, height and density']}],
+  [/^(IC|I-|I\d|M-|MC|M\d)/,{outright:['Light industrial / manufacturing','Warehouse and wholesale','Office (IC, MC)','Artist and maker studios','Laboratory'],conditional:['Retail accessory to industrial','Residential above (MC-1/2, limited)','Cultural and recreation']}],
+  [/^(FC|FM)/,{outright:['Mixed residential and commercial (FC-1)','Industrial and office (FM-1)'],conditional:['Hotel','Institutional','Retail at grade']}],
+  [/^HA/,{outright:['Retail, restaurant, office in heritage buildings','Residential above ground floor','Cultural and hotel'],conditional:['Industrial small-scale','Entertainment']}],
+  [/./,{outright:['See district schedule'],conditional:[]}]];
+function zoneUses(code){ const c=(code||'').toUpperCase().trim(); for(const [re,u] of ZONE_USES) if(re.test(c)) return u; return ZONE_USES[ZONE_USES.length-1][1]; }
+/* program presets: how the use mix shapes the envelope and the program readout (Broadway Plan tenure rules, approximate) */
+const PROGRAMS={
+  rental:   {label:'Secured market rental',      fsrMult:1.0,  podiumUse:'Residential / amenity', towerUse:'Rental residential', gradeUse:null, note:'Full plan density is available to secured rental; below-market share required above certain heights.'},
+  'rental-bm':{label:'Secured rental, 20% below-market', fsrMult:1.0, podiumUse:'Residential / amenity', towerUse:'Rental residential (20% below-market)', gradeUse:null, note:'Unlocks the top of the height range in Centres and apartment areas.'},
+  strata:   {label:'Strata residential',           fsrMult:0.8,  podiumUse:'Residential / amenity', towerUse:'Strata residential', gradeUse:null, note:'Strata is generally limited to lower heights and must deliver 20% social housing or equivalent in the plan area.'},
+  mixed:    {label:'Mixed-use, commercial at grade',fsrMult:1.0, podiumUse:'Retail / service (grade) + residential above', towerUse:'Residential', gradeUse:'Retail / service', note:'Required form on Broadway frontages: continuous commercial at grade, residential above.'},
+  office:   {label:'Office / job space',            fsrMult:1.0, podiumUse:'Retail (grade) + office', towerUse:'Office', gradeUse:'Retail / service', note:'Uptown/Cambie (Area C) and station Centres prioritise job space; residential may be limited or excluded.'},
+  social:   {label:'Social housing partnership',   fsrMult:1.0,  podiumUse:'Community / amenity', towerUse:'Non-profit social housing', gradeUse:null, note:'100% social housing can reach the top of the range; often with a community-serving ground floor.'},
+  hotel:    {label:'Hotel',                         fsrMult:0.9,  podiumUse:'Lobby, retail, meeting rooms', towerUse:'Hotel rooms', gradeUse:'Retail / lobby', note:'Permitted in C districts and Centres; not a residential use, so tenure conditions don’t apply but view cones and job-space policies do.'},
+  inst:     {label:'Institutional / community',    fsrMult:1.0,  podiumUse:'Institutional (clinics, classrooms, cultural)', towerUse:'Institutional', gradeUse:'Public-facing institutional', note:'Hospital-precinct and cultural uses; heights follow the underlying tier, often with unique CD-1 terms.'}};
+/* zoning families → clay-toned palette */
+const ZONE_FAM=[
+  [/^(RS|R1)/,'Single-detached / multiplex (RS, R1-1)',0xF3E7BC],[/^RT/,'Two-family (RT)',0xEFD6A2],[/^RM/,'Multi-family (RM)',0xE8BC92],
+  [/^R3/,'Rental low-rise (R3)',0xA9C8E0],[/^R4/,'Rental mid-rise (R4)',0xF2C39B],[/^R5/,'Rental high-rise (R5)',0xC3A3C0],
+  [/^C-?\d|^C\d/,'Commercial (C)',0xE3A6A1],[/^CD/,'Comprehensive Development (CD-1)',0xCBC5D8],[/^(IC|I-|I\d|M-|MC|M\d)/,'Industrial / mixed-industrial (I, IC, M, MC)',0xB7BCCB],
+  [/^(FC|FM|FSD|FSHCA)/,'False Creek / flats (FC, FM)',0xB9D3D9],[/^HA/,'Historic Area (HA)',0xDAC8A7],[/^BCPED|^DD|^DEOD/,'Downtown districts',0xD8CFC4],[/./,'Other district',0xE6E1D8]];
+function zoneFamily(code){ const c=(code||'').toUpperCase().trim(); if(!c) return {label:'No zoning polygon found',color:0xEDEAE4}; for(const [re,label,color] of ZONE_FAM) if(re.test(c)) return {label,color}; return {label:'Other district',color:0xE6E1D8}; }
+const USE_COL={'Residential':0xF0D9A8,'Residential Inclusive':0xE8BC92,'Commercial':0xE3A6A1,'Industrial':0xB7BCCB,'Comprehensive Development':0xCBC5D8,'Historical Area':0xDAC8A7,'Historic Area':0xDAC8A7,'Limited Agriculture':0xCFE0C0,'Park':0xCFE0C0,'Institutional':0xBFD3E6};
+function useColor(cls){ if(!cls) return 0xEDEAE4; if(USE_COL[cls]) return USE_COL[cls]; let h=0; for(const ch of cls) h=(h*31+ch.charCodeAt(0))&0xffffff; const c=new THREE.Color().setHSL((h%360)/360,0.25,0.8); return c.getHex(); }
+let zoneIndex=null; // zoning polygons with bboxes, rebuilt per site
+function buildZoneIndex(){ zoneIndex=state.zoning.filter(z=>z.geom).flatMap(z=>rings(z.geom).filter(r=>r.length>2).map(r=>({z,r,bb:[Math.min(...r.map(p=>p[0])),Math.min(...r.map(p=>p[1])),Math.max(...r.map(p=>p[0])),Math.max(...r.map(p=>p[1]))]}))); }
+function zoneAt(x,y){ if(!zoneIndex) buildZoneIndex(); for(const e of zoneIndex){ if(x<e.bb[0]||x>e.bb[2]||y<e.bb[1]||y>e.bb[3]) continue; if(pointIn(e.r,x,y)) return e.z; } return null; }
+function ctxColor(b,ring){ const mode=$('ctxcolor').value; if(mode==='height') return bandColor(b.h);
+  if(b._zone===undefined){ const [cx,cy]=centroid(ring); b._zone=zoneAt(cx,cy)||null; }
+  return mode==='zone'?zoneFamily(b._zone&&b._zone.code).color:useColor(b._zone&&b._zone.cls); }
+function ctxLegend(){ const mode=$('ctxcolor').value, box=$('ctxlegend'); if(mode==='height'){ box.innerHTML=`<div><i class="sw" style="background:#F4F1EB;border:1px solid #C9D1D8"></i>Existing under 12 m</div><div><i class="sw" style="background:#E6E1D8"></i>Existing 12–30 m</div><div><i class="sw" style="background:#D3CCC0"></i>Existing 30–60 m</div><div><i class="sw" style="background:#BDB4A6"></i>Existing 60 m and up</div>`; return; }
+  const seen=new Map(); state.buildings.forEach(b=>{ if(b._zone===undefined) return; const k=mode==='zone'?zoneFamily(b._zone&&b._zone.code):{label:(b._zone&&b._zone.cls)||'No zoning polygon found',color:useColor(b._zone&&b._zone.cls)}; seen.set(k.label,(seen.get(k.label)||{color:k.color,n:0})); seen.get(k.label).n++; });
+  box.innerHTML=[...seen.entries()].sort((a,b)=>b[1].n-a[1].n).map(([l,v])=>`<div><i class="sw" style="background:#${v.color.toString(16).padStart(6,'0')}"></i>${l} <span style="color:var(--ink-2)">${v.n}</span></div>`).join('')||'<div>No buildings in view</div>'; }
+
+/* approximate outright / conditional height limits from Vancouver zoning district schedules (m) */
+const ZONE_H = {
+  'R1-1':[11.5,11.5],'RS-1':[11.5,11.5],'RS-3':[11.5,11.5],'RS-5':[11.5,11.5],'RS-7':[11.5,11.5],
+  'RT-':[10.7,10.7],'RM-3':[10.7,10.7],'RM-3A':[10.7,10.7],'RM-4':[10.7,13.8],'RM-4N':[10.7,13.8],'RM-5':[18.3,18.3],'RM-9':[13.8,18.3],
+  'C-1':[10.7,10.7],'C-2':[13.8,13.8],'C-2B':[13.8,13.8],'C-2C':[13.8,13.8],'C-3A':[9.2,30.5],'C-5':[10.7,10.7],'C-7':[15.2,15.2],'C-8':[15.2,15.2],
+  'MC-1':[15.2,18.3],'MC-2':[15.2,18.3],'IC-1':[18.3,18.3],'IC-2':[18.3,18.3],'IC-3':[18.3,30.5],'I-1':[18.3,30.5],'FC-1':[18.3,18.3],'FM-1':[9.1,15.2],
+  'R3':[23,27.5],'R4':[47,47],'R5':[66,84],'CD-1':[null,null]
+};
+function zoneHeight(code){
+  if(!code) return null; const c=code.toUpperCase().trim();
+  for(const k of Object.keys(ZONE_H)) if(c===k || (k.endsWith('-')&&c.startsWith(k)) || (/^R[345]$/.test(k)&&c.startsWith(k+'-'))) return {code:c, outright:ZONE_H[k][0], cond:ZONE_H[k][1], fsr:zoneFSR(c)};
+  const fam=c.split(/[- ]/)[0]; if(fam==='CD') return {code:c,outright:null,cond:null,fsr:null};
+  return {code:c,outright:null,cond:null,fsr:null,unknown:true};
+}
+/* approximate maximum FSR by district (outright / conditional) */
+const ZONE_FSR = {
+  'R1-1':[0.7,1.0],'RS-':[0.7,0.86],'RT-':[0.75,0.75],'RM-3':[1.0,1.45],'RM-3A':[1.0,1.45],'RM-4':[0.75,1.45],'RM-4N':[0.75,1.45],'RM-5':[1.45,2.5],'RM-9':[1.2,2.0],
+  'C-1':[1.2,1.2],'C-2':[1.0,3.0],'C-2B':[1.0,3.0],'C-2C':[1.0,3.0],'C-3A':[1.0,3.0],'C-5':[1.0,3.0],'C-7':[1.0,3.0],'C-8':[1.0,3.0],
+  'MC-1':[1.0,3.0],'MC-2':[1.0,3.0],'IC-1':[1.0,3.0],'IC-2':[1.0,3.0],'IC-3':[1.0,3.0],'I-1':[1.0,3.0],'FC-1':[1.0,3.0],'FM-1':[1.0,1.0],
+  'R3':[2.7,3.0],'R4':[4.0,4.5],'R5':[6.5,6.8]
+};
+function zoneFSR(c){ for(const k of Object.keys(ZONE_FSR)) if(c===k||(k.endsWith('-')&&c.startsWith(k))||(/^R[345]$/.test(k)&&c.startsWith(k+'-'))) return ZONE_FSR[k]; return null; }
+
+/* proposed zoning presets: [label, max height m, max FSR, notes] */
+const PROPOSALS = {
+  keep:  ['Keep existing zoning', null, null, ''],
+  'R3':  ['R3 low-rise rental (8 storeys)', 27.5, 3.0, 'Secured rental; 20% below-market for the upper range.'],
+  'R4':  ['R4 mid-rise rental', 47, 4.5, 'Arterial mid-rise; secured rental with below-market share.'],
+  'R5':  ['R5 high-rise rental', 84, 6.5, 'R5-1 to R5-4 schedules: typically ~20 storeys, up to 84 m (≈26) for social or secured rental; 6.8 FSR if mixed-use.'],
+  'C-2': ['C-2 commercial mixed-use', 13.8, 3.0, 'Commercial at grade, residential above.'],
+  'C-3A':['C-3A Broadway commercial', 30.5, 3.0, 'Conditional height with urban-design review.'],
+  centre:['Broadway Plan Centre rezoning (CD-1)', 120, 8.0, 'Station-area mixed-use; 2024 amendments allow ~25–40 storeys, up to 8.0 FSR.'],
+  apt:   ['Broadway Plan apartment area (CD-1)', 66, 6.5, 'Residential TOA area, ~18–22 storeys; rental or strata with social housing share.'],
+  custom:['Custom CD-1', 60, 5.0, 'Set your own height cap and FSR.']
+};
+
+/* Broadway Plan: indicative tiers from the 2022 plan + 2024 TOA amendments */
+const STATIONS = [
+  ['Great Northern Way–Emily Carr',-123.0915,49.2675],['Mount Pleasant (Main)',-123.1007,49.2632],
+  ['Broadway–City Hall',-123.1148,49.2629],['Oak–VGH',-123.1273,49.2633],
+  ['South Granville',-123.1389,49.2635],['Arbutus',-123.1550,49.2637]];
+function dist(lon1,lat1,lon2,lat2){ const R=6371000,p=Math.PI/180; const x=(lon2-lon1)*p*Math.cos((lat1+lat2)/2*p), y=(lat2-lat1)*p; return Math.hypot(x,y)*R; }
+function broadwayTier(lon,lat){
+  const inside = lon>-123.164 && lon<-123.0765 && lat>49.2565 && lat<49.2705;
+  const st = STATIONS.map(s=>({name:s[0],d:dist(lon,lat,s[1],s[2])})).sort((a,b)=>a.d-b.d)[0];
+  const offBroadway = Math.abs(lat-49.2634)*111320;   // metres north/south of Broadway centreline
+  if(!inside) return {inside:false, station:st, fsr:1.0, text:`Outside the Broadway Plan area (nearest station ${st.name}, ${Math.round(st.d)} m). Base zoning and the Vancouver Plan / R1-1 multiplex rules apply.`, typ:6, max:8};
+  const uptown = lon>-123.129 && lon<-123.1135 && offBroadway<330;
+  if(st.d<200 && offBroadway<130) return {inside:true, station:st, fsr:8.0, text:`Centre, station area (${st.name}, ${Math.round(st.d)} m). Mixed-use towers in the 30–40 storey range where view cones allow; ${uptown?'Uptown/Cambie Area C prioritises job space, with up to ~30 storeys for mixed-use after the 2024 amendments.':'Burrard Slopes / Granville / Main heights vary by sub-area.'}`, typ:32, max:40};
+  if(st.d<400 && offBroadway<130) return {inside:true, station:st, fsr:6.5, text:`Centre, Broadway frontage (${st.name}, ${Math.round(st.d)} m). Typically 20–30 storeys mixed-use with commercial at grade; 2024 amendments lifted the former 10-storey / 4.5 FSR areas to ~25 storeys / 8.0 FSR.`, typ:25, max:30};
+  if(st.d<800) return {inside:true, station:st, fsr:6.5, text:`Residential area inside the 800 m transit-oriented area (${st.name}, ${Math.round(st.d)} m). Apartment areas allow roughly 18–20 storeys (R5 pre-zoning where mapped), low-rise areas 8 storeys / 3.0 FSR minimum under Bill 47.`, typ:20, max:22};
+  return {inside:true, station:st, fsr:3.0, text:`Residential shoulder area (${st.name}, ${Math.round(st.d)} m). Generally 6–12 storeys: R3 low-rise up to 6, R4 mid-rise up to 8 along arterials, taller only where the plan maps high-rise apartment areas.`, typ:6, max:12};
+}
+
+/* ---------------- geometry helpers ---------------- */
+let origin={lon:0,lat:0};
+function toXY(lon,lat){ const R=6371000,p=Math.PI/180; return [ (lon-origin.lon)*p*Math.cos(origin.lat*p)*R, (lat-origin.lat)*p*R ]; }
+function rings(geom){ // outer rings only, as arrays of [x,y]
+  if(!geom) return [];
+  if(geom.type==='Polygon') return [geom.coordinates[0].map(c=>toXY(c[0],c[1]))];
+  if(geom.type==='MultiPolygon') return geom.coordinates.map(p=>p[0].map(c=>toXY(c[0],c[1])));
+  return [];
+}
+function area(r){ let a=0; for(let i=0;i<r.length;i++){const [x1,y1]=r[i],[x2,y2]=r[(i+1)%r.length]; a+=x1*y2-x2*y1;} return Math.abs(a)/2; }
+function centroid(r){ let cx=0,cy=0; r.forEach(([x,y])=>{cx+=x;cy+=y}); return [cx/r.length,cy/r.length]; }
+function inset(r,d){ // approximate offset: shrink toward centroid by d relative to mean radius
+  const [cx,cy]=centroid(r); const mean=r.reduce((s,[x,y])=>s+Math.hypot(x-cx,y-cy),0)/r.length;
+  const k=Math.max(0.05,1-d/mean); return r.map(([x,y])=>[cx+(x-cx)*k, cy+(y-cy)*k]);
+}
+function pointIn(r,x,y){ let inside=false; for(let i=0,j=r.length-1;i<r.length;j=i++){const [xi,yi]=r[i],[xj,yj]=r[j]; if(((yi>y)!=(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi)) inside=!inside;} return inside; }
+function hull(pts){ // Andrew monotone chain
+  const p=[...pts].sort((a,b)=>a[0]-b[0]||a[1]-b[1]); if(p.length<3) return p;
+  const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[]; for(const q of p){ while(lo.length>=2&&cross(lo[lo.length-2],lo[lo.length-1],q)<=0) lo.pop(); lo.push(q); }
+  const up=[]; for(let i=p.length-1;i>=0;i--){ const q=p[i]; while(up.length>=2&&cross(up[up.length-2],up[up.length-1],q)<=0) up.pop(); up.push(q); }
+  return lo.slice(0,-1).concat(up.slice(0,-1));
+}
+/* assembled site: exact area = sum of parcels; outline = hull of all vertices (adjacent lots) */
+function assembledSite(){
+  const sel=state.selected||[]; if(!sel.length) return null;
+  const parcelRings=sel.map(s=>rings(s.geom).sort((a,b)=>area(b)-area(a))[0]).filter(Boolean);
+  const exact=parcelRings.reduce((s,r)=>s+area(r),0);
+  const outline=parcelRings.length===1?parcelRings[0]:hull(parcelRings.flat());
+  return { rings:parcelRings, outline, area:exact, hullArea:area(outline), n:parcelRings.length };
+}
+
+/* ---------------- three.js scene ---------------- */
+const main=$('main'), tip=$('tip');
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.05;
+main.appendChild(renderer.domElement);
+const scene=new THREE.Scene(); scene.background=null; // CSS gradient shows through
+const camera=new THREE.PerspectiveCamera(38,1,0.5,4000);
+const orthoCam=new THREE.OrthographicCamera(-60,60,60,-60,-2000,4000);
+let activeCam=camera;
+scene.add(new THREE.HemisphereLight(0xF6F8FB,0xC8C2B8,0.55));
+scene.add(new THREE.AmbientLight(0xffffff,0.35));
+const sun=new THREE.DirectionalLight(0xFFF6E8,1.35); sun.castShadow=true; sun.shadow.mapSize.set(4096,4096); sun.shadow.bias=-0.00035; sun.shadow.normalBias=0.06; sun.shadow.radius=3;
+sun.shadow.camera.left=sun.shadow.camera.bottom=-150; sun.shadow.camera.right=sun.shadow.camera.top=150; sun.position.set(90,140,60); scene.add(sun);
+const fill=new THREE.DirectionalLight(0xDCE6F2,0.35); fill.position.set(-120,80,-90); scene.add(fill);
+const world=new THREE.Group(); scene.add(world);
+const pickables=[];
+/* clay materials */
+const MAT={
+  clay:c=>new THREE.MeshStandardMaterial({color:c,roughness:0.95,metalness:0}),
+  proposed:()=>new THREE.MeshStandardMaterial({color:0x3B7EAF,roughness:0.6,metalness:0,transparent:true,opacity:0.94}),
+  ground:()=>new THREE.MeshStandardMaterial({color:0xFBFBF9,roughness:1,metalness:0}),
+  park:()=>new THREE.MeshStandardMaterial({color:0xD5E6C8,roughness:1,metalness:0}),
+  edge:(c=0x4A5563,o=0.55)=>new THREE.LineBasicMaterial({color:c,transparent:true,opacity:o})
+};
+function withEdges(mesh,color,opacity){ const e=new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry,12),MAT.edge(color,opacity)); mesh.add(e); return mesh; }
+
+const orbit={az:-0.6,el:0.75,r:150,target:new THREE.Vector3()};
+function placeCamera(){
+  camera.position.set(orbit.target.x+orbit.r*Math.cos(orbit.el)*Math.sin(orbit.az), orbit.target.y+orbit.r*Math.sin(orbit.el), orbit.target.z+orbit.r*Math.cos(orbit.el)*Math.cos(orbit.az));
+  camera.lookAt(orbit.target);
+  if(viewMode==='vaxo'){ orthoCam.up.set(0,1,0); orthoCam.position.set(orbit.target.x+600*Math.cos(orbit.el)*Math.sin(orbit.az), orbit.target.y+600*Math.sin(orbit.el), orbit.target.z+600*Math.cos(orbit.el)*Math.cos(orbit.az)); orthoCam.lookAt(orbit.target); }
+  else { orthoCam.up.set(0,0,-1); orthoCam.position.set(orbit.target.x,600,orbit.target.z); orthoCam.lookAt(orbit.target); }
+  const s=orbit.r*0.55, a=main.clientWidth/main.clientHeight; orthoCam.left=-s*a; orthoCam.right=s*a; orthoCam.top=s; orthoCam.bottom=-s; orthoCam.updateProjectionMatrix();
+}
+function resize(){ const w=main.clientWidth,h=main.clientHeight; renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix(); placeCamera(); }
+addEventListener('resize',resize);
+
+/* pointer orbit */
+let drag=null, lastTouchDist=0;
+const el=renderer.domElement;
+el.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,b:e.button||(e.shiftKey?2:0)}; el.setPointerCapture(e.pointerId);});
+el.addEventListener('pointerup',e=>{
+  if(drag&&drag.b===0&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<4){
+    const b=el.getBoundingClientRect(); mouse.set(((e.clientX-b.left)/b.width)*2-1, -((e.clientY-b.top)/b.height)*2+1);
+    ray.setFromCamera(mouse,activeCam); const hit=ray.intersectObjects(pickables).find(h=>h.object.userData.lot);
+    if(hit){ if(clickMode==='inspect') inspectLot(hit.object.userData.lot); else toggleLot(hit.object.userData.lot); }
+    else if(clickMode==='inspect'){ const hb=ray.intersectObjects(pickables).find(h=>h.object.userData.bld||h.object.userData.mergedBuildings); if(hb){ let b=hb.object.userData.bld; if(!b){ const x=hb.point.x, y=-hb.point.z; b=state.buildings.find(bb=>{ const r=rings(bb.geom)[0]; return r&&pointIn(r,x,y); }); } if(b) inspectBuilding(b); } }
+  }
+  drag=null;
+});
+el.addEventListener('pointermove',e=>{
+  if(drag){
+    const dx=e.clientX-drag.x, dy=e.clientY-drag.y; drag.x=e.clientX; drag.y=e.clientY;
+    if(drag.b===2){ const k=orbit.r/600; orbit.target.x-=(dx*Math.cos(orbit.az)-dy*Math.sin(orbit.az))*k; orbit.target.z-=(dx*Math.sin(orbit.az)+dy*Math.cos(orbit.az))*k; }
+    else { orbit.az-=dx*0.006; orbit.el=Math.min(1.5,Math.max(0.08,orbit.el+dy*0.006)); }
+    placeCamera();
+  } else hover(e);
+});
+el.addEventListener('wheel',e=>{e.preventDefault(); orbit.r=Math.min(4000,Math.max(25,orbit.r*(1+Math.sign(e.deltaY)*0.1))); placeCamera();},{passive:false});
+el.addEventListener('contextmenu',e=>e.preventDefault());
+
+const ray=new THREE.Raycaster(), mouse=new THREE.Vector2();
+function hover(e){
+  const b=el.getBoundingClientRect(); mouse.set(((e.clientX-b.left)/b.width)*2-1, -((e.clientY-b.top)/b.height)*2+1);
+  ray.setFromCamera(mouse,activeCam); const hit=ray.intersectObjects(pickables)[0];
+  if(hit){ tip.style.display='block'; tip.style.left=(e.clientX-b.left)+'px'; tip.style.top=(e.clientY-b.top)+'px';
+    let label=hit.object.userData.label; const cd=hit.object.userData.cells;
+    if(hit.object.userData.envelopes){ const x=hit.point.x, y=-hit.point.z; const c=ENV.cells.find(c=>pointIn(c.r,x,y)); if(c){ const a=area(c.r); label=`${c.e.label} · up to ${c.e.maxH.toFixed(0)} m (≈${Math.floor(c.e.maxH/(+$('ff').value))} storeys)${c.e.maxFSR?` · ${c.e.maxFSR} FSR ≈ ${Math.round(c.e.maxFSR*a).toLocaleString()} m² on this ${a.toFixed(0)} m² footprint`:''} · existing ${c.b.h.toFixed(0)} m`; } }
+    tip.textContent=label; }
+  else tip.style.display='none';
+}
+
+function polyMesh(ring,h,color,y0=0,opts={}){
+  const shape=new THREE.Shape(ring.map(([x,y])=>new THREE.Vector2(x,y)));
+  const [tcx,tcy]=centroid(ring); let seat=opts.seat, depth=h;
+  const g=depth>0?new THREE.ExtrudeGeometry(shape,{depth,bevelEnabled:false}):new THREE.ShapeGeometry(shape);
+  g.rotateX(-Math.PI/2); // extrude along +z -> up; shape y -> scene -z (matches outline())
+  const m=new THREE.Mesh(g,opts.material||MAT.clay(color));
+  m.position.y=y0+(h>0?0:0.02)+(seat!==undefined?seat:terrainAt(tcx,tcy)); m.castShadow=h>0; m.receiveShadow=true;
+  if(h>0&&opts.edges!==false) withEdges(m,opts.edgeColor||0x4A5563,opts.edgeOpacity||0.45);
+  return m;
+}
+function outline(ring,color,y=0.05,dashed=false,scale=30){
+  const pts=ring.map(([x,z])=>new THREE.Vector3(x,y+terrainAt(x,z),-z)); pts.push(pts[0].clone());
+  const g=new THREE.BufferGeometry().setFromPoints(pts);
+  const d=Math.max(2,scale/15);
+  const mat=dashed?new THREE.LineDashedMaterial({color,dashSize:d,gapSize:d*0.75}):new THREE.LineBasicMaterial({color});
+  const l=new THREE.Line(g,mat); if(dashed) l.computeLineDistances(); return l;
+}
+function circleRing(r,n=96){ return Array.from({length:n},(_,i)=>[r*Math.cos(i/n*2*Math.PI), r*Math.sin(i/n*2*Math.PI)]); }
+
+function rebuild(){
+  while(world.children.length) world.remove(world.children[0]); pickables.length=0;
+  if(!state.site) return;
+  const radius=+$('rad').value;
+  // scale scene to radius
+  const sc=sun.shadow.camera; sc.left=sc.bottom=-radius*1.2; sc.right=sc.top=radius*1.2; sc.far=radius*4+400; sc.updateProjectionMatrix();
+  camera.far=radius*30+2000; camera.updateProjectionMatrix();
+  // ground plate + fine drawing grid
+  let contourInterval=null;
+  { const ground=new THREE.Mesh(new THREE.CircleGeometry(radius*1.6,128),MAT.ground());
+  ground.rotation.x=-Math.PI/2; ground.receiveShadow=true; ground.userData.groundPlate=true; world.add(ground);
+  const gstep=radius<=60?5:radius<=300?10:50; const grid=new THREE.GridHelper(radius*2.4,Math.round(radius*2.4/gstep),0xE3E6EA,0xEDEFF2); grid.position.y=0.01; grid.material.transparent=true; grid.material.opacity=0.9; grid.userData.groundPlate=true; world.add(grid); }
+  world.add(outline(circleRing(radius,Math.max(96,radius/4)),0xD8462B,0.1,true,radius));
+  if(radius>=60) world.add(outline(circleRing(30),0xD8462B,0.1,true,30)); // always keep the 30 m detail ring
+  try{ drawOverlay(radius); }catch(e){ console.error('overlay',e); setStatus('Overlay could not be drawn: '+e.message,true); }
+  try{ drawStreets(radius); }catch(e){ console.error('streets',e); }
+  // parks
+  const draped=false;
+  state.parks.forEach(p=>rings(p.geom).forEach(r=>{ const m=polyMesh(r,0,0,0,{material:MAT.park()}); m.userData.label=p.name; m.userData.clayContext=true;
+    if(draped){ m.material.transparent=true; m.material.opacity=0.0001; } // colour comes from the terrain mesh; this stays for hover
+    world.add(m); pickables.push(m); const ol=outline(r,0x9DBB8E,0.05); ol.userData.clayContext=true; world.add(ol); }));
+  // existing buildings (skip ones on the assembled site)
+  const site=assembledSite();
+  const siteRings=site?site.rings:[];
+  const onSite=r=>siteRings.some(s=>pointIn(s,...centroid(r)));
+  // clickable lots for assembly
+  const selIds=new Set((state.selected||[]).map(s=>s.id));
+  (state.lots||[]).forEach(l=>{ const r=rings(l.geom).sort((a,b)=>area(b)-area(a))[0]; if(!r||r.length<3) return;
+    const inSite=selIds.has(l.id)||siteRings.some(s=>pointIn(s,...centroid(r)));
+    const m=polyMesh(r,0,inSite?0xB9D3E6:0xFFFFFF); m.position.y=0.06; m.material.transparent=true; m.material.opacity=inSite?0.9:0.0001;
+    m.userData.label=(inSite?'In site · ':'Click to add to site · ')+(l.addr||'lot')+` · ${area(r).toFixed(0)} m²`; m.userData.lot=l; world.add(m); pickables.push(m);
+    world.add(outline(r,inSite?0x2F6F9F:0xD3D9DF,0.09)); });
+  const many = state.buildings.length>400, merged=[], mergedCols=[], mergedEdges=[];
+  const near30=[]; // heights within 30 m of site centre
+  state.buildings.forEach(b=>rings(b.geom).forEach(r=>{
+    if(b.hidden||onSite(r)||r.length<3) return;
+    const [cx,cy]=centroid(r); if(Math.hypot(cx,cy)<=30+Math.sqrt(area(r))/2) near30.push(b);
+    const cc=ctxColor(b,r); const m=polyMesh(r,b.h,cc,0,{edges:!many});
+    if(many){ const g=m.geometry.toNonIndexed(); g.translate(0,m.position.y,0); merged.push(g); mergedCols.push(new THREE.Color(cc)); if(state.buildings.length<=3000){ const eg0=new THREE.EdgesGeometry(m.geometry,12); eg0.translate(0,m.position.y,0); mergedEdges.push(eg0); } return; }
+    m.userData.label=`${b.name&&b.name!=='Building'?b.name+' · ':''}${b.known?'~'+b.h.toFixed(1)+' m':'height unknown, drawn at 8 m'} · ≈${storeysOf(b.h)} storeys · ${b.src||'City 2015 footprint'}${b.roof?' · '+b.roof.toLowerCase()+' roof':''}${b._zone?' · '+b._zone.code+(b._zone.cls?' ('+b._zone.cls+')':''):''}`; m.userData.clayContext=true; m.userData.bld=b; world.add(m); pickables.push(m);
+  }));
+  if(merged.length){ // one draw call for thousands of footprints, coloured per height band
+    let n=0; merged.forEach(g=>n+=g.attributes.position.count);
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3), col=new Float32Array(n*3); let o=0;
+    merged.forEach((g,i)=>{ const c=g.attributes.position.count; pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3);
+      const k=mergedCols[i]; for(let j=0;j<c;j++){ col[(o+j)*3]=k.r; col[(o+j)*3+1]=k.g; col[(o+j)*3+2]=k.b; } o+=c; g.dispose(); });
+    const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.BufferAttribute(nor,3)); g.setAttribute('color',new THREE.BufferAttribute(col,3));
+    const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95,metalness:0})); m.castShadow=m.receiveShadow=true; m.userData.label=`Existing buildings (${state.buildings.length} footprints, shaded by height)`; m.userData.clayContext=true; m.userData.mergedBuildings=true; world.add(m); pickables.push(m);
+    if(mergedEdges.length){ let en=0; mergedEdges.forEach(e=>en+=e.attributes.position.count); const ep=new Float32Array(en*3); let eo=0; mergedEdges.forEach(e=>{ ep.set(e.attributes.position.array,eo*3); eo+=e.attributes.position.count; e.dispose(); });
+      const eg=new THREE.BufferGeometry(); eg.setAttribute('position',new THREE.BufferAttribute(ep,3)); const el2=new THREE.LineSegments(eg,MAT.edge(0x4A5563,0.3)); el2.userData.clayContext=true; world.add(el2); }
+  }
+  // site + massing
+  const ts=+$('ts').value, ps=+$('ps').value, ff=+$('ff').value, sb=+$('sb').value, fp=+$('fp').value;
+  let siteArea=0, gfa=0, height=0;
+  if(site){
+    const r=site.outline; siteArea=site.area;
+    site.rings.forEach(pr=>world.add(outline(pr,0x1F2A33,0.12)));
+    if(site.n>1) world.add(outline(r,0x2F6F9F,0.14,true,20));
+    const pod=inset(r,sb), podA=area(pod)*(site.area/Math.max(site.hullArea,1)), podH=ps*ff;
+    const datum=0; state.grade=null;
+    const floorLines=(ring,y0,n,ff)=>{ const pts=[]; for(let i=1;i<n;i++){ const y=y0+i*ff; for(let k=0;k<ring.length;k++){ const a=ring[k],b=ring[(k+1)%ring.length]; pts.push(a[0],y,-a[1],b[0],y,-b[1]); } }
+      if(!pts.length) return; const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pts,3)); world.add(new THREE.LineSegments(g,MAT.edge(0x1F4E70,0.28))); };
+    const baseRing=ps>0?pod:(()=>{ const [cx,cy]=centroid(pod), s0=Math.sqrt(Math.min(fp,podA*0.85)), hh=s0/2; return [[cx-hh,cy-hh],[cx+hh,cy-hh],[cx+hh,cy+hh],[cx-hh,cy+hh]]; })();
+    if(ps>0){ const m=polyMesh(pod,podH,0,0,{seat:datum,material:MAT.proposed(),edgeColor:0x1F4E70,edgeOpacity:0.85}); m.userData.label=`Podium · ${ps} storeys · ${podH.toFixed(1)} m`; world.add(m); pickables.push(m); gfa+=podA*ps; floorLines(pod,datum,ps,ff); }
+    if(ts>0){
+      const [cx,cy]=centroid(pod), s=Math.sqrt(Math.min(fp,podA*0.85)); const half=s/2;
+      const tower=[[cx-half,cy-half],[cx+half,cy-half],[cx+half,cy+half],[cx-half,cy+half]];
+      const m=polyMesh(tower,ts*ff,0,0,{seat:datum+podH+0.01,material:MAT.proposed(),edgeColor:0x1F4E70,edgeOpacity:0.85}); m.userData.label=`Tower · ${ts} storeys · ${(ts*ff).toFixed(1)} m above podium`; world.add(m); pickables.push(m);
+      gfa+=Math.min(fp,podA*0.85)*ts; floorLines(tower,datum+podH,ts,ff);
+    }
+    height=(ps+ts)*ff;
+    // datum plane marker (thin dashed outline at datum) and height leader from datum at the east edge
+    if(height>0){
+      const ex=Math.max(...r.map(p=>p[0]))+3, ez=-centroid(r)[1]; const y0=datum, y1=datum+height;
+      world.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ex,y0,ez),new THREE.Vector3(ex,y1,ez),new THREE.Vector3(ex-1.5,y1,ez),new THREE.Vector3(ex+1.5,y1,ez),new THREE.Vector3(ex-1.5,y0,ez),new THREE.Vector3(ex+1.5,y0,ez)]),MAT.edge(0x1F2A33,0.8)));
+      state.leader={x:ex,y:y1,z:ez,h:height}; } else state.leader=null;
+  }
+  $('s-area').textContent=siteArea?siteArea.toFixed(0):'—';
+  $('s-h').textContent=height?height.toFixed(1):'—';
+  $('s-gfa').textContent=gfa?Math.round(gfa).toLocaleString():'—';
+  $('s-fsr').textContent=siteArea&&gfa?(gfa/siteArea).toFixed(2):'—';
+  topoStats(); ctxLegend();
+  buildBeforeAfter();
+  // title block
+  const tb=$('titleblock'); tb.style.display=state.site?'block':'none';
+  if(state.site){ $('tb-addr').textContent=state.site.label+(site&&site.n>1?` (+${site.n-1} lots)`:'');
+    $('tb-mass').textContent=height?`${ps} podium + ${ts} tower storeys · ${height.toFixed(1)} m`:'no site';
+    $('tb-fsr').textContent=siteArea&&gfa?`${(gfa/siteArea).toFixed(2)} FSR · ${Math.round(gfa).toLocaleString()} m² on ${siteArea.toFixed(0)} m²`:'—';
+    $('tb-ctx').textContent=`${radius} m radius · ${state.buildings.length} buildings · ${state.parks.length} parks`+(contourInterval?` · contours ${contourInterval} m`:''); }
+  const hs=state.buildings.filter(b=>b.known&&!b.hidden).map(b=>b.h).sort((a,b)=>b-a);
+  const h30=near30.filter(b=>b.known&&!b.hidden).map(b=>b.h).sort((a,b)=>b-a);
+  heightCheck(height,hs,h30);
+  updateFSR(siteArea,gfa);
+  programReadout(siteArea,site?area(inset(site.outline,sb))*(site.area/Math.max(site.hullArea,1)):0,ps,site?Math.min(fp,area(inset(site.outline,sb))*(site.area/Math.max(site.hullArea,1))*0.85):0,ts,ff);
+}
+
+/* ---- streets & names ---- */
+function streetName(r){ let n=String(r.name||r.street_name||r.streetname||r.hblock||'').replace(/\s+/g,' ').trim();
+  n=n.replace(/^\d+\s+/,'').replace(/^(\d+-)?\d+\s+/,''); // drop the hundred-block number ("2400 MAIN ST" → "MAIN ST")
+  n=n.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()).replace(/\b(Nw|Ne|Sw|Se|N|S|E|W)\b/g,m=>m.toUpperCase()).replace(/\bSt\b/,'St').replace(/\bAve\b/,'Ave');
+  return n; }
+
+function drawStreets(radius){
+  if(!state.streets||!state.streets.length) return;
+  const r2=(radius*1.3)**2, pos=[];
+  for(const st of state.streets){ let len=0, mid=null; for(let k=0;k+1<st.pts.length;k++){ const a=st.pts[k],b=st.pts[k+1]; if(a[0]*a[0]+a[1]*a[1]>r2&&b[0]*b[0]+b[1]*b[1]>r2) continue; pos.push(a[0],0.03,-a[1],b[0],0.03,-b[1]); len+=Math.hypot(b[0]-a[0],b[1]-a[1]); }
+  }
+  if(pos.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); const L=new THREE.LineSegments(g,MAT.edge(0x9AA4AE,0.55)); L.userData.groundPlate=true; world.add(L); }
+}
+
+/* ---- ground overlays ---- */
+let overlay='none';
+const RENTAL_COL={R3:0x3F7FC4,R4:0xE07F3E,R5:0x8C4F86};
+const hex=c=>'#'+c.toString(16).padStart(6,'0');
+function ramp(t,a,b){ const A=new THREE.Color(a),B=new THREE.Color(b); return A.lerp(B,Math.min(1,Math.max(0,t))); }
+function drawOverlay(radius){
+  const leg=$('ovlegend'); leg.innerHTML=''; leg.style.display='none'; PZ.labels=[]; $('pzlabels').innerHTML='';
+  if(overlay==='none'||!state.site) return;
+  if(overlay==='envPlan'){ drawEnvelopes(radius,true); return; }
+  if(overlay==='prezoned'){
+    let n={R3:0,R4:0,R5:0}; const ff=+$('ff').value; ENV.cells=[]; PZ.labels=[];
+    state.zoning.forEach(z=>{ if(!z.geom) return; const code=(z.code||'').toUpperCase(); const fam=code.match(/^(R[345])\b/); const c=fam?RENTAL_COL[fam[1]]:null;
+      rings(z.geom).forEach(r0=>{ const r=cleanRing(r0); if(r.length<3) return; const [cx,cy]=centroid(r); const xs=r.map(p=>p[0]),ys=r.map(p=>p[1]); const R2=radius*1.3; if(Math.max(...xs)<-R2||Math.min(...xs)>R2||Math.max(...ys)<-R2||Math.min(...ys)>R2) return; // keep any polygon whose extent touches the study area
+        try{
+        if(!c){ const m=polyMesh(r,0,0xE4E7EA); m.position.y=0.04; m.material.transparent=true; m.material.opacity=0.001; const zh=zoneHeight(z.code); m.userData.label=`${z.code}${z.cls?' · '+z.cls:''}${zh&&zh.fsr?` · up to ${zh.fsr[1]} FSR / ${zh.cond} m`:''}`; world.add(m); pickables.push(m); return; }
+        const zh=zoneHeight(code); const H=zh.cond||zh.outright; const st=Math.floor(H/ff);
+        // the district polygon extruded to its storey cap
+        const m=polyMesh(r,H,0,0,{seat:0,material:new THREE.MeshStandardMaterial({color:c,transparent:true,opacity:0.36,roughness:0.85,depthWrite:false,side:THREE.DoubleSide}),edgeColor:c,edgeOpacity:0.95});
+        m.castShadow=false; m.userData.label=`Pre-zoned ${fam[1]} · up to ${H.toFixed(0)} m ≈ ${st} storeys · ${zh.fsr?zh.fsr[1]+' FSR':''} · ${area(r).toFixed(0)} m² district area`; world.add(m); pickables.push(m);
+        const floor=polyMesh(r,0,c); floor.position.y=0.05; floor.material.transparent=true; floor.material.opacity=0.55; world.add(floor);
+        const lr=Math.hypot(cx,cy), lf=lr>radius?radius/lr:1; PZ.labels.push({x:cx*lf,y:H+2,z:-cy*lf,html:`<b>${fam[1]} · ${st} storeys</b>${H.toFixed(0)} m${zh.fsr?' · '+zh.fsr[1]+' FSR':''}`,color:hex(c)}); n[fam[1]]++;
+        }catch(e){ console.warn('district polygon skipped',z.code,e.message); } }); });
+    PZ.labels.forEach(L=>{ const d=document.createElement('div'); d.className='balabel'; d.style.borderLeft='3px solid '+L.color; d.innerHTML=L.html; $('pzlabels').appendChild(d); L.el=d; });
+    if(!(n.R3+n.R4+n.R5)){ // nothing pre-zoned in the live layer here: show what is there and fall back to the plan tiers
+      const codes=[...new Set(state.zoning.map(z=>(z.code||'').toUpperCase()).filter(Boolean))].sort();
+      drawEnvelopes(radius,true,true);
+      leg.style.display='grid'; leg.innerHTML=`<div><strong>No R3/R4/R5 polygons in the live zoning layer within ${radius} m</strong></div>
+        <div>Districts present: ${codes.slice(0,14).join(', ')}${codes.length>14?' +'+(codes.length-14)+' more':''}${codes.length?'':' (zoning layer returned nothing — check the connection)'}.</div>
+        <div>The City's open-data zoning layer only shows R3/R4/R5 once its mapping of the October 2025 city-initiated rezoning is published; until then the boxes shown are the Broadway Plan tier envelopes (yellow → red with height).</div>`;
+      return; }
+    leg.style.display='grid'; leg.innerHTML=`<div><strong>Pre-zoned rental districts (live zoning layer), extruded to their storey caps</strong></div>
+      <div><i class="sw" style="background:${hex(RENTAL_COL.R3)}"></i>R3 low-rise · 8 storeys / 3.0 FSR <span>${n.R3}</span></div>
+      <div><i class="sw" style="background:${hex(RENTAL_COL.R4)}"></i>R4 mid-rise · 47 m ≈ 15 storeys / 4.5 FSR <span>${n.R4}</span></div>
+      <div><i class="sw" style="background:${hex(RENTAL_COL.R5)}"></i>R5 high-rise · 66–84 m ≈ 20–26 storeys / 6.5 FSR <span>${n.R5}</span></div>
+      <div>Existing buildings stay solid inside each volume; hover a volume for its cap and district area.</div>
+      ${(n.R3+n.R4+n.R5)?'':'<div>No R3/R4/R5 polygons in this radius — other districts are hoverable.</div>'}`;
+    return;
+  }
+  // indicative Broadway Plan tiers on a grid
+  const cell=Math.max(12,radius/40), cells=[], cols=[];
+  const p=Math.PI/180, R=6371000;
+  for(let x=-radius;x<radius;x+=cell) for(let y=-radius;y<radius;y+=cell){
+    if(Math.hypot(x+cell/2,y+cell/2)>radius) continue;
+    const lon=origin.lon+(x+cell/2)/(R*Math.cos(origin.lat*p))/p, lat=origin.lat+(y+cell/2)/R/p;
+    const t=broadwayTier(lon,lat); if(!t.inside) continue;
+    const v=overlay==='planH'?t.max:t.fsr, k=overlay==='planH'?(t.max-8)/32:(t.fsr-3)/5;
+    cells.push([[x,y],[x+cell,y],[x+cell,y+cell],[x,y+cell]]); cols.push({c:ramp(k,0xFFF1C2,0xB8341C),v,t});
+  }
+  const pos=[],col=[];
+  cells.forEach((q,i)=>{ const k=cols[i].c; const tri=[q[0],q[1],q[2],q[0],q[2],q[3]]; tri.forEach(([x,y])=>{ pos.push(x,0.06+terrainAt(x,y),-y); col.push(k.r,k.g,k.b); }); });
+  if(pos.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('color',new THREE.Float32BufferAttribute(col,3)); g.computeVertexNormals();
+    const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true,transparent:true,opacity:0.85})); m.receiveShadow=true;
+    m.userData.label=overlay==='planH'?'Indicative Broadway Plan max height':'Indicative Broadway Plan max FSR'; m.userData.cells={cells,cols,cell}; world.add(m); pickables.push(m); }
+  // plan boundary
+  const bx=[[-123.164,49.2565],[-123.0765,49.2565],[-123.0765,49.2705],[-123.164,49.2705]].map(c=>toXY(...c));
+  world.add(outline(bx,0x1F2A33,0.2,true,400));
+  const steps=overlay==='planH'?[['8 storeys (shoulder / outside)',8],['12 storeys',12],['22 storeys (TOA apartment)',22],['30 storeys (Broadway frontage)',30],['40 storeys (station Centre)',40]]:[['3.0 FSR (shoulder)',3],['4.5 FSR',4.5],['6.5 FSR (TOA / frontage)',6.5],['8.0 FSR (station Centre)',8]];
+  leg.style.display='grid'; leg.innerHTML=`<div><strong>${overlay==='planH'?'Indicative allowable height':'Indicative maximum FSR'} — Broadway Plan tiers</strong></div>`+
+    steps.map(([l,v])=>`<div><i class="sw" style="background:#${ramp(overlay==='planH'?(v-8)/32:(v-3)/5,0xFFF1C2,0xB8341C).getHexString()}"></i>${l}</div>`).join('')+
+    `<div>Dashed outline = plan area. Approximation by station distance; view cones, solar-access and tower-count rules can lower these.</div>`;
+}
+function cleanRing(r){ // remove closing duplicate, near-duplicate and collinear-noise points; thin very long rings
+  let out=[]; for(const p of r){ const q=out[out.length-1]; if(!q||Math.hypot(p[0]-q[0],p[1]-q[1])>0.05) out.push(p); }
+  if(out.length>1&&Math.hypot(out[0][0]-out[out.length-1][0],out[0][1]-out[out.length-1][1])<=0.05) out.pop();
+  if(out.length>1500){ const step=Math.ceil(out.length/1500); out=out.filter((_,i)=>i%step===0); }
+  return out; }
+function edgeColorsFor(eg,src){ // nearest-vertex colour lookup so edges match their box
+  const sp=src.attributes.position.array, sc=src.attributes.color.array, ep=eg.attributes.position.array, out=new Float32Array(ep.length); const map=new Map(); for(let i=0;i<sp.length;i+=3) map.set(sp[i].toFixed(2)+','+sp[i+1].toFixed(2)+','+sp[i+2].toFixed(2),i);
+  for(let i=0;i<ep.length;i+=3){ const k=map.get(ep[i].toFixed(2)+','+ep[i+1].toFixed(2)+','+ep[i+2].toFixed(2)); if(k!==undefined){ out[i]=sc[k]*0.55; out[i+1]=sc[k+1]*0.55; out[i+2]=sc[k+2]*0.55; } } return out; }
+/* envelope overlay: each existing footprint extruded to its lot's allowable height, merged into one translucent mesh */
+const ENV={cells:[]}; const PZ={labels:[]};
+function envelopeFor(x,y,usePlan){
+  const z=zoneAt(x,y); const code=z&&(z.code||'').toUpperCase(); const fam=code&&code.match(/^(R[345])\b/);
+  if(fam){ const zh=zoneHeight(code); return {label:`Pre-zoned ${fam[1]}`,maxH:zh.cond||zh.outright,maxFSR:zh.fsr?zh.fsr[1]:null,color:RENTAL_COL[fam[1]],kind:'pre'}; }
+  if(usePlan){ const p=Math.PI/180,R=6371000; const t=broadwayTier(origin.lon+x/(R*Math.cos(origin.lat*p))/p, origin.lat+y/R/p); if(t.inside) return {label:`Plan tier ~${t.max} storeys`,maxH:t.max*(+$('ff').value),maxFSR:t.fsr,color:ramp((t.max-8)/32,0xFFF1C2,0xB8341C).getHex(),kind:'plan'}; }
+  return null; }
+function drawEnvelopes(radius,usePlan,quiet){
+  const leg=$('ovlegend'); const pos=[],col=[]; ENV.cells=[]; let nPre=0,nPlan=0,nNone=0;
+  const shapes=[];
+  state.buildings.forEach(b=>{ if(b.hidden) return; const r0=rings(b.geom)[0]; const r=r0?cleanRing(r0):null; if(!r||r.length<3) return; const [cx,cy]=centroid(r); if(cx*cx+cy*cy>radius*radius*1.2) return;
+    const e=envelopeFor(cx,cy,usePlan); if(!e||!e.maxH){ nNone++; return; } if(e.maxH<=b.h+0.5){ ENV.cells.push({r,e,b,built:true}); return; }
+    e.kind==='pre'?nPre++:nPlan++; ENV.cells.push({r,e,b});
+    let g; try{ const shape=new THREE.Shape(r.map(([x,y])=>new THREE.Vector2(x,y))); g=new THREE.ExtrudeGeometry(shape,{depth:e.maxH-b.h,bevelEnabled:false}); g.rotateX(-Math.PI/2); g.translate(0,b.h,0); }catch(err){ return; }
+    const ng=g.toNonIndexed(); const c=new THREE.Color(e.color); const n=ng.attributes.position.count; for(let i=0;i<n;i++) col.push(c.r,c.g,c.b); pos.push(...ng.attributes.position.array); ng.dispose(); g.dispose(); });
+  if(pos.length){ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('color',new THREE.Float32BufferAttribute(col,3)); g.computeVertexNormals();
+    const m=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,transparent:true,opacity:0.6,roughness:0.85,depthWrite:false,side:THREE.DoubleSide})); m.userData.envelopes=true; m.userData.label='Allowable envelope'; world.add(m); pickables.push(m);
+    const e=new THREE.LineSegments(new THREE.EdgesGeometry(g,20),new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0.9})); e.geometry.setAttribute('color',new THREE.Float32BufferAttribute(edgeColorsFor(e.geometry,g),3)); world.add(e); }
+  if(quiet){ ENV.counts={nPre,nNone}; return; }
+  leg.style.display='grid'; leg.innerHTML=`<div><strong>${usePlan?'Allowable envelopes — pre-zoning and Broadway Plan tiers':'Allowable envelopes — pre-zoned R3/R4/R5 lots'}</strong></div>
+    <div><i class="sw" style="background:${hex(RENTAL_COL.R3)}"></i>R3 · 8 storeys / 3.0 FSR</div><div><i class="sw" style="background:${hex(RENTAL_COL.R4)}"></i>R4 · 47 m / 4.5 FSR</div><div><i class="sw" style="background:${hex(RENTAL_COL.R5)}"></i>R5 · 66–84 m ≈ 20–26 storeys / 6.5 FSR</div>
+    ${usePlan?'<div><i class="sw" style="background:#E0A070"></i>Plan tier (yellow → red with height)</div>':''}
+    <div>${nPre} buildings on pre-zoned lots${usePlan?`, ${nPlan} on plan-tier lots`:''}, ${nNone} outside any mapped uplift. Hover an envelope for its height and FSR; existing buildings stay solid inside.</div>`;
+}
+function setOverlay(k){ overlay=k; ['ovnone','ovpre','ovh','ovfsr','ovenvp'].forEach(id=>$(id).classList.toggle('on',$(id).dataset.ov===k)); rebuild(); pushHistory(true); }
+
+/* flat ground: terrain helpers are stubs */
+function terrainAt(){ return 0; } function terrainRaw(){ return 0; } function vexFactor(){ return 1; }
+function topoStats(){}
+/* ---- lot inspector & before/after ---- */
+let clickMode='assemble', baOn=false; const BA={group:null,labels:[]};
+function setClickMode(m){ clickMode=m; $('modeasm').classList.toggle('on',m==='assemble'); $('modeinsp').classList.toggle('on',m==='inspect'); setStatus(m==='inspect'?'Inspect mode: click a lot to read its zoning, uses and before/after.':'Assemble mode: click lots to add or remove them from the site.'); }
+$('modeasm').onclick=()=>setClickMode('assemble'); $('modeinsp').onclick=()=>setClickMode('inspect');
+function lotEnvelopes(r){ // existing vs. after (pre-zoned district if the lot is already R3/R4/R5, else the plan tier, else the selected proposal)
+  const c=centroid(r); const z=zoneAt(c[0],c[1]); const zh=z?zoneHeight(z.code):null; const fam=z&&(z.code||'').toUpperCase().match(/^(R[345])\b/);
+  const before={label:z?`Existing ${z.code}`:'Existing zoning unknown',maxH:zh?(zh.cond||zh.outright):null,maxFSR:zh&&zh.fsr?zh.fsr[1]:null,uses:zoneUses(z&&z.code)};
+  let after;
+  if(fam){ after={label:`Pre-zoned ${fam[1]} (already in force)`,maxH:before.maxH,maxFSR:before.maxFSR,uses:before.uses,same:true}; }
+  else { const [lon,lat]=[origin.lon+c[0]/(111320*Math.cos(origin.lat*Math.PI/180)),origin.lat+c[1]/111320]; const t=broadwayTier(lon,lat);
+    if(t.inside){ after={label:`Broadway Plan rezoning (~${t.max} storeys)`,maxH:t.max*(+$('ff').value),maxFSR:t.fsr,uses:{outright:['Secured rental or social housing at the upper range','Commercial at grade on Broadway frontages','Strata at lower heights with social-housing share'],conditional:['Office / job space in Centres','Hotel, institutional, cultural']},tier:t}; }
+    else { const env=activeEnvelope(); after=env.proposed?{label:'Proposed '+env.label,maxH:env.maxH,maxFSR:env.maxFSR,uses:zoneUses(env.code)}:{label:'No rezoning pathway mapped',maxH:before.maxH,maxFSR:before.maxFSR,uses:before.uses,same:true}; } }
+  return {zone:z,before,after};
+}
+function inspectLot(l){
+  const r=rings(l.geom).sort((a,b)=>area(b)-area(a))[0]; if(!r) return; const e=lotEnvelopes(r); const box=$('inspector');
+  const list=u=>`<ul>${u.outright.map(x=>`<li>${x}</li>`).join('')}${u.conditional.length?`<li style="color:var(--ink-2)">Conditional: ${u.conditional.join('; ')}</li>`:''}</ul>`;
+  const stor=h=>h?`${Math.floor(h/(+$('ff').value))} storeys · ${h.toFixed(0)} m`:'site-specific';
+  box.innerHTML=`<div class="insp"><h3>${l.addr||'Lot'}</h3>
+    <div class="row"><span>Parcel area</span><span>${area(r).toFixed(0)} m²</span></div>
+    <div class="row"><span>District</span><span>${e.zone?e.zone.code+(e.zone.cls?' · '+e.zone.cls:''):'—'}</span></div>
+    <div class="row"><span>Plan tier here</span><span>${e.after.tier?e.after.tier.text.split('.')[0]:(e.before.label.startsWith('Existing R')?'pre-zoned rental district':'—')}</span></div>
+    <div class="ba"><div><b>Before · ${e.before.label}</b>${stor(e.before.maxH)}<br>${e.before.maxFSR?e.before.maxFSR+' FSR':'FSR site-specific'}</div><div style="border-color:var(--proposed)"><b>After · ${e.after.label}</b>${stor(e.after.maxH)}<br>${e.after.maxFSR?e.after.maxFSR+' FSR':'FSR site-specific'}${e.after.same?'<br><span style="color:var(--ink-2)">no further change mapped</span>':''}</div></div>
+    <b style="font-size:12.5px">Permitted uses and programs — before</b>${list(e.before.uses)}
+    <b style="font-size:12.5px">Uses and programs — after</b>${list(e.after.uses)}
+    <button class="btn quiet" id="insp-use" style="width:100%">Use this lot as the site</button>
+    <p class="note" style="margin:6px 0 0">Uses are condensed from the district schedules and the plan; confirm against the schedule text before relying on them.</p></div>`;
+  $('insp-use').onclick=()=>{ state.selected=[l]; rebuild(); renderAssembly(); pushHistory(true); setStatus(`Site set to ${l.addr||'the selected lot'}.`); };
+  // highlight the inspected lot in the view
+  world.children.filter(o=>o.userData.inspectMark).forEach(o=>world.remove(o)); const ol=outline(r,0xD8462B,0.2); ol.userData.inspectMark=true; world.add(ol);
+  setStatus(`Inspecting ${l.addr||'lot'} — ${e.before.label} → ${e.after.label}.`);
+}
+/* per-building corrections, remembered in this browser by footprint centre */
+function bKey(b){ const r=rings(b.geom)[0]; if(!r) return null; const c=centroid(r); const p=Math.PI/180,R=6371000; return `${(origin.lon+c[0]/(R*Math.cos(origin.lat*p))/p).toFixed(5)},${(origin.lat+c[1]/R/p).toFixed(5)}`; }
+function loadOverrides(){ try{ return JSON.parse(localStorage.getItem('bldOverrides')||'{}'); }catch(e){ return {}; } }
+function applyOverrides(){ const ov=loadOverrides(); let n=0; state.buildings.forEach(b=>{ const k=bKey(b); if(k&&ov[k]){ if(ov[k].hide) b.hidden=true; else { b.h=ov[k].h; b.known=true; b.blob=false; b.src='Manual override'; } n++; } }); return n; }
+function inspectBuilding(b){ const r=rings(b.geom)[0]; const box=$('inspector'); const k=bKey(b);
+  box.innerHTML=`<div class="insp"><h3>${b.name||'Existing building'}</h3>
+    <div class="row"><span>Footprint</span><span>${r?area(r).toFixed(0):'—'} m²</span></div>
+    <div class="row"><span>Height in use</span><span>${b.h.toFixed(1)} m · ≈${storeysOf(b.h)} storeys</span></div>
+    <div class="row"><span>Source</span><span>${b.src}${b.blob?' ⚠':''}</span></div>
+    ${b.blob?'<p class="note">This outline sits inside one generalized 2009 footprint that covers a whole complex, so its height is uncertain and has been capped. Set it below if you know it.</p>':''}
+    <div class="pzgrid" style="margin-top:8px"><div class="field" style="margin:0"><label for="bo-h">Set height (m)</label><input id="bo-h" class="num" type="number" step="0.5" min="2" max="300" value="${b.h.toFixed(1)}"></div><div class="field" style="margin:0"><label for="bo-st">or storeys</label><input id="bo-st" class="num" type="number" step="1" min="1" max="90" placeholder="× 3.1 m"></div></div>
+    <div style="display:flex;gap:6px;margin-top:8px"><button class="btn" id="bo-apply" style="flex:1">Apply</button><button class="btn quiet" id="bo-hide" style="flex:1">Hide building</button><button class="btn quiet" id="bo-reset" style="flex:1" ${loadOverrides()[k]?'':'disabled'}>Reset</button></div>
+    <p class="note" style="margin:6px 0 0">Corrections are kept in this browser and re-applied whenever this block is loaded.</p></div>`;
+  const save=(v)=>{ const ov=loadOverrides(); if(v===null) delete ov[k]; else ov[k]=v; try{ localStorage.setItem('bldOverrides',JSON.stringify(ov)); }catch(e){} };
+  $('bo-apply').onclick=()=>{ const st=+$('bo-st').value; const h=st>0?st*3.1:+$('bo-h').value; if(!(h>0)) return; save({h}); b.h=h; b.known=true; b.blob=false; b.hidden=false; b.src='Manual override'; rebuild(); pushHistory(true); inspectBuilding(b); setStatus(`Building set to ${h.toFixed(1)} m.`); };
+  $('bo-hide').onclick=()=>{ save({hide:true}); b.hidden=true; rebuild(); pushHistory(true); setStatus('Building hidden (Reset in the inspector restores it).'); inspectBuilding(b); };
+  $('bo-reset').onclick=()=>{ save(null); if(state.site) selectSite(state.site); };
+  world.children.filter(o=>o.userData.inspectMark).forEach(o=>world.remove(o)); if(r){ const ol=outline(r,0xD8462B,0.2); ol.userData.inspectMark=true; world.add(ol); }
+}
+function buildBeforeAfter(){
+  if(BA.group){ world.remove(BA.group); BA.group=null; } BA.labels=[]; $('balabels').innerHTML=''; if(!baOn) return;
+  const site=assembledSite(); if(!site) return; const r=site.outline, sb=+$('sb').value, pod=inset(r,sb); const e=lotEnvelopes(r); const g=new THREE.Group(); BA.group=g;
+  const [cx,cy]=centroid(r);
+  const draw=(env,color,dx,tag)=>{ if(!env.maxH) return; const ring=pod.map(([x,y])=>[x+dx,y]); const m=polyMesh(ring,env.maxH,0,0,{seat:0,material:new THREE.MeshStandardMaterial({color,transparent:true,opacity:0.18,roughness:0.9,depthWrite:false}),edgeColor:color,edgeOpacity:0.9}); m.castShadow=false; m.userData.label=`${tag}: ${env.label} · ${env.maxH.toFixed(0)} m${env.maxFSR?' · '+env.maxFSR+' FSR':''}`; g.add(m); pickables.push(m);
+    BA.labels.push({x:cx+dx,y:env.maxH+2,z:-cy,html:`<b>${tag} · ${env.label}</b>${Math.floor(env.maxH/(+$('ff').value))} storeys · ${env.maxH.toFixed(0)} m${env.maxFSR?' · '+env.maxFSR+' FSR':''}`}); };
+  draw(e.before,0xC9A66B,0,'Before'); draw(e.after,0x3B7EAF,0,'After');
+  world.add(g); BA.labels.forEach(L=>{ const d=document.createElement('div'); d.className='balabel'; d.innerHTML=L.html; $('balabels').appendChild(d); L.el=d; });
+}
+function updatePZLabels(){ if(!PZ.labels.length) return; const w=main.clientWidth,h=main.clientHeight; PZ.labels.forEach(L=>{ _v.set(L.x,L.y,L.z).project(activeCam); if(_v.z<1&&Math.abs(_v.x)<1.1&&Math.abs(_v.y)<1.1){ L.el.style.display='block'; L.el.style.left=((_v.x+1)/2*w)+'px'; L.el.style.top=((1-_v.y)/2*h)+'px'; } else L.el.style.display='none'; }); }
+function updateBALabels(){ if(!baOn||!BA.labels.length) return; const w=main.clientWidth,h=main.clientHeight; BA.labels.forEach(L=>{ _v.set(L.x,L.y,L.z).project(activeCam); if(_v.z<1&&Math.abs(_v.x)<1.2&&Math.abs(_v.y)<1.2){ L.el.style.display='block'; L.el.style.left=((_v.x+1)/2*w)+'px'; L.el.style.top=((1-_v.y)/2*h)+'px'; } else L.el.style.display='none'; }); }
+$('vba').onclick=()=>{ baOn=!baOn; $('vba').classList.toggle('on',baOn); rebuild(); pushHistory(true); if(baOn){ const site=assembledSite(); if(!site) setStatus('Select a site first.',true); else setStatus('Before / After: tan = existing zoning envelope, blue = pre-zoned or plan rezoning envelope. Solid blue is your current proposal.'); } };
+
+/* ---- undo / redo ---- */
+const HIST={stack:[],idx:-1,applying:false,timer:null,max:60};
+const UNDO_FIELDS=['ts','ps','ff','sb','fp','pz','pz-fsr','pz-h','program','ctxcolor'];
+function snapshot(){ const o={fields:{},selected:(state.selected||[]).map(l=>l.id),overlay,baOn,site:state.site?state.site.label:null}; UNDO_FIELDS.forEach(id=>o.fields[id]=$(id).value); return JSON.stringify(o); }
+function pushHistory(immediate){ if(HIST.applying) return; clearTimeout(HIST.timer);
+  const commit=()=>{ const snap=snapshot(); if(HIST.stack[HIST.idx]===snap) return; HIST.stack=HIST.stack.slice(0,HIST.idx+1); HIST.stack.push(snap); if(HIST.stack.length>HIST.max) HIST.stack.shift(); HIST.idx=HIST.stack.length-1; };
+  if(immediate) commit(); else HIST.timer=setTimeout(commit,350); } // slider drags collapse into one step
+function applySnapshot(snap){ const o=JSON.parse(snap); HIST.applying=true;
+  try{ if(o.site&&state.site&&o.site!==state.site.label){ /* site changed since: keep current site, restore the rest */ }
+    UNDO_FIELDS.forEach(id=>{ if(o.fields[id]!==undefined) $(id).value=o.fields[id]; }); ['ts','ps','ff','sb','fp'].forEach(id=>$(id+'-o').textContent=$(id).value);
+    const keep=$('pz').value==='keep'; $('pz-fsr').disabled=$('pz-h').disabled=keep;
+    const pool=[...(state.lots||[]),...(state.selected||[])]; state.selected=o.selected.map(id=>pool.find(l=>l.id===id)).filter(Boolean);
+    overlay=o.overlay; ['ovnone','ovpre','ovh','ovfsr','ovenvp'].forEach(id=>$(id).classList.toggle('on',$(id).dataset.ov===overlay));
+    baOn=o.baOn; $('vba').classList.toggle('on',baOn);
+    rebuild(); renderAssembly(); }
+  finally{ HIST.applying=false; } }
+function undo(){ if(HIST.idx<=0){ setStatus('Nothing to undo.'); return; } HIST.idx--; applySnapshot(HIST.stack[HIST.idx]); setStatus(`Undo (${HIST.idx} step${HIST.idx===1?'':'s'} left).`); }
+function redo(){ if(HIST.idx>=HIST.stack.length-1){ setStatus('Nothing to redo.'); return; } HIST.idx++; applySnapshot(HIST.stack[HIST.idx]); setStatus('Redo.'); }
+addEventListener('keydown',e=>{ const t=e.target; if(t&&(t.tagName==='INPUT'&&t.type==='text'||t.tagName==='TEXTAREA')) return; const mod=e.ctrlKey||e.metaKey; if(!mod) return;
+  if(e.key.toLowerCase()==='z'&&!e.shiftKey){ e.preventDefault(); undo(); } else if((e.key.toLowerCase()==='z'&&e.shiftKey)||e.key.toLowerCase()==='y'){ e.preventDefault(); redo(); } });
+// record changes: sliders/selects (debounced), and discrete actions (immediate)
+UNDO_FIELDS.forEach(id=>{ $(id).addEventListener('input',()=>pushHistory(false)); $(id).addEventListener('change',()=>pushHistory(false)); });
+
+/* ---- site assembly ---- */
+function toggleLot(l){
+  state.selected=state.selected||[];
+  const r=rings(l.geom).sort((a,b)=>area(b)-area(a))[0]; if(!r) return;
+  // matches the origin parcel or an already selected lot by centroid containment
+  const c=centroid(r); const i=state.selected.findIndex(s=>rings(s.geom).some(sr=>pointIn(sr,...c)));
+  if(i>=0){ state.selected.splice(i,1); setStatus(`Removed ${l.addr||'lot'} from the site.`); }
+  else {
+    const near=state.selected.some(s=>{ const sr=rings(s.geom)[0]; return sr&&sr.some(([x,y])=>r.some(([u,v])=>Math.hypot(x-u,y-v)<1.5)); });
+    state.selected.push(l); setStatus(near||state.selected.length===1?`Added ${l.addr||'lot'} to the site.`:`Added ${l.addr||'lot'} — note it does not touch the other lots, so the outline spans the gap.`, !near&&state.selected.length>1);
+  }
+  rebuild(); renderAssembly(); pushHistory(true);
+}
+function renderAssembly(){
+  const site=assembledSite(), box=$('asm'); setTimeout(()=>box.querySelectorAll('a[data-rmlot]').forEach(a=>a.onclick=e=>{ e.preventDefault(); state.selected.splice(+a.dataset.rmlot,1); rebuild(); renderAssembly(); }),0);
+  if(!site){ box.innerHTML='<p class="note" style="margin:0">No parcel selected. Click lots in the view to build a site.</p>'; return; }
+  box.innerHTML=`<div class="stats" style="margin-bottom:8px"><div class="stat"><b>${site.n}</b><span>parcel${site.n>1?'s':''} assembled</span></div><div class="stat"><b>${site.area.toFixed(0)}</b><span>total site m²</span></div></div>
+    <ul class="ctx">${state.selected.map((s,i)=>`<li><span>${s.addr||'Lot '+(i+1)}</span><span>${area(rings(s.geom)[0]||[]).toFixed(0)} m² · <a href="#" data-rmlot="${i}" style="color:var(--ring)">remove</a></span></li>`).join('')}</ul>
+    ${site.n>1&&site.hullArea>site.area*1.08?`<p class="note">Outline is the convex hull of the lots and is ${((site.hullArea/site.area-1)*100).toFixed(0)}% larger than their summed area (an L-shaped or gapped assembly); FSR still uses the exact summed area.</p>`:''}`;
+}
+$('asm-clear').onclick=()=>{ state.selected=[]; rebuild(); renderAssembly(); pushHistory(true); setStatus('Site cleared — click lots to start a new assembly.'); };
+function lotsTouching(ringsA){ // lots sharing an edge (a vertex within 1.5 m of the other's boundary) with any ring in ringsA
+  return (state.lots||[]).filter(l=>{ const r=rings(l.geom)[0]; if(!r) return false; const c=centroid(r); if(ringsA.some(a=>pointIn(a,...c))) return false;
+    return ringsA.some(a=>r.some(([x,y])=>segDist(a,x,y)<1.5)||a.some(([x,y])=>segDist(r,x,y)<1.5)); }); }
+function segDist(ring,x,y){ let best=Infinity; for(let k=0;k<ring.length;k++){ const a=ring[k],b=ring[(k+1)%ring.length]; const dx=b[0]-a[0],dy=b[1]-a[1]; const L=dx*dx+dy*dy; let t=L?((x-a[0])*dx+(y-a[1])*dy)/L:0; t=Math.max(0,Math.min(1,t)); const d=Math.hypot(a[0]+t*dx-x,a[1]+t*dy-y); if(d<best) best=d; } return best; }
+$('asm-adj').onclick=()=>{ const site=assembledSite(); if(!site) return setStatus('Select a starting lot first.',true); const add=lotsTouching(site.rings); if(!add.length) return setStatus('No further lots touch the current site within the loaded area (lots load within 400 m of the address).');
+  state.selected=state.selected.concat(add); rebuild(); renderAssembly(); pushHistory(true); setStatus(`Added ${add.length} adjacent lot${add.length>1?'s':''}. Click any lot to remove it.`); };
+$('asm-add').onclick=async()=>{ const q=$('asm-addr').value.trim(); if(!q) return; setStatus('Finding parcel…');
+  try{ const c=await geocode(q); if(!c.length) return setStatus('No address match for that parcel.',true); const hit=c[0];
+    let recs=[]; try{ recs=await ods('property-parcel-polygons',{ where:`intersects(geom, ${pt(hit.lon,hit.lat)})`, limit:1 }); }catch(e){}
+    const g=recs[0]?geomOf(recs[0]):null; if(!g) return setStatus('Address found but no parcel polygon at that point.',true);
+    const [x,y]=toXY(hit.lon,hit.lat); if(Math.hypot(x,y)>+$('rad').value*1.5+50) return setStatus('That parcel is outside the current context radius — increase the radius or look it up as the main address.',true);
+    const lot={geom:g,id:'addr:'+hit.label,addr:hit.label}; if(!(state.lots||[]).some(l=>l.id===lot.id)) (state.lots=state.lots||[]).push(lot);
+    const r=rings(g)[0]; const already=(state.selected||[]).some(s0=>rings(s0.geom).some(sr=>pointIn(sr,...centroid(r)))); if(already) return setStatus(`${hit.label} is already in the site.`);
+    state.selected.push(lot); $('asm-addr').value=''; rebuild(); renderAssembly(); pushHistory(true); setStatus(`Added ${hit.label} to the site.`); }
+  catch(e){ setStatus('Could not add parcel: '+e.message,true); } };
+$('asm-addr').addEventListener('keydown',e=>e.key==='Enter'&&$('asm-add').onclick());
+
+/* ---- proposed zoning ---- */
+let siteZoneCache=null;
+function siteZone(){ return state.zoning.find(z=>z.geom&&rings(z.geom).some(r=>pointIn(r,0,0))) || (state.zoning[0]&&!state.zoning[0].geom?state.zoning[0]:null); }
+function activeEnvelope(){ // {label, maxH, maxFSR, code, proposed}
+  const k=$('pz').value, zh=siteZone()?zoneHeight(siteZone().code):null;
+  if(k==='keep'){
+    return { label: zh?`existing ${zh.code}`:'existing zoning', code: zh?zh.code:null, proposed:false,
+      maxH: zh?(zh.cond??zh.outright):null, maxFSR: zh&&zh.fsr?zh.fsr[1]:null, note: zh&&zh.fsr?`${zh.code}: outright ${zh.fsr[0]} FSR / ${zh.outright} m, conditional ${zh.fsr[1]} FSR / ${zh.cond} m (approximate schedule values).`:(zh?`${zh.code} sets density and height site-by-site.`:'Look up an address to read the existing district.') };
+  }
+  const p=PROPOSALS[k]; const pr=PROGRAMS[$('program').value]||PROGRAMS.rental; const base=+$('pz-fsr').value||p[2];
+  return { label:p[0], code:k, proposed:true, maxH:+$('pz-h').value||p[1], maxFSR:base?+(base*pr.fsrMult).toFixed(2):null, note:p[3]+(pr.fsrMult!==1?` Program “${pr.label}” scales the cap to ${(pr.fsrMult*100).toFixed(0)}% of ${base} FSR.`:'')+' '+pr.note };
+}
+function programReadout(siteArea,podA,ps,plate,ts,ff){
+  const pr=PROGRAMS[$('program').value]||PROGRAMS.rental, box=$('program-out'); if(!siteArea){ box.innerHTML=''; return; }
+  const gradeA=pr.gradeUse&&ps>0?podA:0, podRes=podA*Math.max(0,ps-(pr.gradeUse?1:0)), towerA=plate*ts;
+  const rows=[]; if(gradeA) rows.push([pr.gradeUse+' (ground floor)',gradeA]);
+  if(podRes>0) rows.push([pr.podiumUse.replace(/^Retail.*?\+ ?/,'').replace(/ \(grade\).*$/,''),podRes]); if(towerA>0) rows.push([pr.towerUse+' (tower)',towerA]);
+  const resA=rows.filter(r=>/residential|housing|rental|strata/i.test(r[0])).reduce((a,r)=>a+r[1],0), offA=rows.filter(r=>/office|job|institutional|hotel/i.test(r[0])).reduce((a,r)=>a+r[1],0), retA=rows.filter(r=>/retail|service|lobby/i.test(r[0])).reduce((a,r)=>a+r[1],0);
+  const units=Math.round(resA*0.85/75), jobs=Math.round(offA/25+retA/40)+(/hotel/i.test(pr.label)?Math.round(towerA/45*0.6):0);
+  box.innerHTML=`<b>${pr.label}</b> · ${rows.map(r=>`${r[0]}: ${Math.round(r[1]).toLocaleString()} m²`).join(' · ')}`+(units?` · ≈${units} homes`:'')+(jobs?` · ≈${jobs} jobs`:'')+`<br><span style="color:var(--ink-2)">Estimates: 85% efficiency, 75 m² per home, 25 m² per office job, 40 m² per retail job.</span>`;
+}
+function populatePZ(){
+  $('pz').innerHTML=Object.entries(PROPOSALS).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('');
+  $('pz').onchange=()=>{ const k=$('pz').value, p=PROPOSALS[k], keep=k==='keep';
+    $('pz-fsr').disabled=$('pz-h').disabled=keep; if(!keep){ $('pz-fsr').value=p[2]; $('pz-h').value=p[1]; } else { $('pz-fsr').value=''; $('pz-h').value=''; }
+    rebuild(); };
+  ['pz-fsr','pz-h'].forEach(id=>$(id).addEventListener('input',rebuild));
+}
+function updateFSR(siteArea,gfa){
+  const env=activeEnvelope(); $('pz-note').textContent=env.note||'';
+  const used=$('fsr-used'), cap=$('fsr-cap');
+  if(!siteArea){ used.style.width='0'; cap.style.display='none'; $('fsr-l').textContent='—'; $('fsr-r').textContent='—'; return; }
+  const fsr=gfa/siteArea, max=env.maxFSR;
+  if(max){ const scale=Math.max(max,fsr)*1.1; used.style.width=(fsr/scale*100)+'%'; used.className=fsr>max+0.005?'over':''; cap.style.display='block'; cap.style.left=(max/scale*100)+'%';
+    $('fsr-l').textContent=`Proposed ${fsr.toFixed(2)} FSR · ${Math.round(gfa).toLocaleString()} m²`;
+    const diff=(max-fsr)*siteArea; $('fsr-r').textContent=diff>=0?`${Math.round(diff).toLocaleString()} m² left under ${max} FSR`:`${Math.round(-diff).toLocaleString()} m² over ${max} FSR`; }
+  else { used.style.width=Math.min(100,fsr/8*100)+'%'; used.className=''; cap.style.display='none'; $('fsr-l').textContent=`Proposed ${fsr.toFixed(2)} FSR`; $('fsr-r').textContent='no FSR cap on file for '+env.label; }
+}
+function fitToFSR(){
+  const env=activeEnvelope(), site=assembledSite(); if(!env.maxFSR||!site){ setStatus('Choose a proposed district (or custom FSR) and a site with at least one parcel first.',true); return; }
+  const r=site.outline, siteArea=site.area;
+  const ps=+$('ps').value, ff=+$('ff').value, sb=+$('sb').value, fp=+$('fp').value;
+  const podA=area(inset(r,sb))*(site.area/Math.max(site.hullArea,1)), plate=Math.min(fp,podA*0.85);
+  const target=env.maxFSR*siteArea, podGFA=podA*ps;
+  let ts=Math.max(0,Math.floor((target-podGFA)/plate));
+  if(env.maxH){ const maxTs=Math.floor(env.maxH/ff)-ps; ts=Math.min(ts,Math.max(0,maxTs)); }
+  ts=Math.min(ts,+$('ts').max);
+  $('ts').value=ts; $('ts-o').textContent=ts; rebuild(); pushHistory(true);
+  const gfa=podGFA+plate*ts, fsr=gfa/siteArea;
+  setStatus(env.maxH&&fsr<env.maxFSR-0.05?`Height cap of ${env.maxH} m binds first: ${ps+ts} storeys reaches ${fsr.toFixed(2)} FSR of the ${env.maxFSR} allowed. Enlarge the floor plate or podium to use the rest.`:`Sized to ${ps+ts} storeys, ${fsr.toFixed(2)} FSR under ${env.label}.`);
+}
+
+function heightCheck(h,hs,h30){
+  const box=$('hcheck'); if(!state.site){ box.innerHTML=''; return; }
+  const sz=siteZone(); const zh=sz?zoneHeight(sz.code):null; const env=activeEnvelope();
+  const plan=state.plan, ff=+$('ff').value;
+  const rows=[
+    ['Proposed massing', h, 'var(--proposed)'],
+    ['Tallest within 30 m', h30[0]||0, '#7E7469'],
+    ['Tallest in radius', hs[0]||0, '#A69D91'],
+    zh&&zh.outright!=null ? [`Existing ${zh.code} outright`, zh.outright, '#D8A63A'] : null,
+    zh&&zh.cond!=null&&zh.cond!==zh.outright ? [`Existing ${zh.code} conditional`, zh.cond, '#E6C87A'] : null,
+    env.proposed&&env.maxH ? [`Proposed ${env.label}`, env.maxH, '#4F8F5A'] : null,
+    plan&&plan.inside ? [`Broadway Plan tier (~${plan.max} storeys)`, plan.max*ff, 'var(--ring)'] : null
+  ].filter(Boolean);
+  const mx=Math.max(1,...rows.map(r=>r[1]));
+  let html=rows.map(([l,v,c])=>`<div class="hrow"><span>${l}</span><i style="width:${(v/mx*100).toFixed(1)}%;background:${c}"></i><b>${v?v.toFixed(0)+' m':'—'}</b></div>`).join('');
+  const verdict=[];
+  if(env.proposed){
+    if(env.maxH) verdict.push(h>env.maxH?`Exceeds the proposed ${env.label} height cap by ${(h-env.maxH).toFixed(0)} m.`:`Within the proposed ${env.label} height cap.`);
+    if(zh&&zh.outright!=null&&h>(zh.cond||zh.outright)) verdict.push(`Requires rezoning from ${zh.code} (${(h-(zh.cond||zh.outright)).toFixed(0)} m over its limit).`);
+  } else if(zh){ if(zh.unknown) verdict.push(`No height limit on file for ${zh.code}; check the district schedule.`);
+    else if(zh.outright==null) verdict.push(`${zh.code} sets heights site-by-site (${zh.code.startsWith('CD')?'comprehensive development by-law':'rental district schedule'}).`);
+    else if(h>(zh.cond||zh.outright)) verdict.push(`Exceeds the ${zh.code} height limit by ${(h-(zh.cond||zh.outright)).toFixed(0)} m — this would need a rezoning; pick a proposed district above to test one.`);
+    else if(h>zh.outright) verdict.push(`Within ${zh.code} conditional height; above the outright limit by ${(h-zh.outright).toFixed(0)} m.`);
+    else verdict.push(`Within the ${zh.code} outright height limit.`); }
+  if(plan&&plan.inside&&h>plan.max*ff) verdict.push(`Above the indicative Broadway Plan ceiling for this tier by ${(h-plan.max*ff).toFixed(0)} m.`);
+  if(h30.length) verdict.push(`${(h/h30[0]).toFixed(1)}× the tallest building within 30 m.`);
+  if(hs.length){ const pct=hs.filter(x=>x<h).length/hs.length*100; verdict.push(`Taller than ${pct.toFixed(0)}% of existing buildings in the radius.`); }
+  // profile histogram
+  const bands=[['<12 m',0,12,'#C9C2B8'],['12–30 m',12,30,'#A69D91'],['30–60 m',30,60,'#7E7469'],['60 m+',60,1e9,'#554C44']];
+  const tot=hs.length||1;
+  html+=`<div class="prof">${bands.map(([l,a,b,c])=>{const n=hs.filter(x=>x>=a&&x<b).length;return `<div title="${n} buildings"><i style="height:${Math.max(2,n/tot*48)}px;background:${c}"></i><span>${l}</span><b>${n}</b></div>`}).join('')}</div>`;
+  html+=`<p class="note" style="margin-top:8px">${verdict.join(' ')} Heights come from the City's 2009 LiDAR-derived footprints joined to the 2015 outlines; zoning limits are approximate schedule values.</p>`;
+  box.innerHTML=html;
+}
+
+/* ---------------- UI wiring ---------------- */
+$('program').addEventListener('change',rebuild); $('ctxcolor').addEventListener('change',rebuild);
+['ts','ps','ff','sb','fp','rad'].forEach(id=>{
+  $(id).addEventListener('input',()=>{ $(id+'-o').textContent=$(id).value; if(id==='rad'&&state.site) return; rebuild(); });
+});
+$('rad').addEventListener('change',()=>{ try{ localStorage.setItem('ctxRadius',$('rad').value); }catch(e){} state.site&&selectSite(state.site); });
+try{ const r0=localStorage.getItem('ctxRadius'); if(r0){ $('rad').value=r0; $('rad-o').textContent=r0; } }catch(e){}
+$('hfield').addEventListener('change',()=>state.site&&!state.site.label.includes('synthetic')&&selectSite(state.site));
+
+async function selectSite(site){
+  state.site=site; $('cands').style.display='none'; $('addr').value=site.label;
+  setStatus('Loading parcel, neighbours, parks and zoning…');
+  origin={lon:site.lon,lat:site.lat};
+  try{ await loadContext(site.lon,site.lat,+$('rad').value); }catch(e){ setStatus('Could not reach the City open data API. '+e.message,true); return; }
+  applyPlan(); rebuild(); renderAssembly(); $('empty').style.display='none'; pushHistory(true);
+  orbit.r=Math.max(120,+$('rad').value*1.7); orbit.target.set(0,0,0); placeCamera();
+  setStatus(state.parcel?`Showing ${site.label}. Click adjacent lots to assemble a larger site.`:`No parcel polygon found at this point — click a lot in the view to select one.`, !state.parcel);
+  return;
+  setStatus(state.parcel?`Showing ${site.label}.`:`No parcel polygon found at this point — context shown, massing needs a lot. Try a neighbouring civic number.`, !state.parcel);
+}
+function applyPlan(){
+  const p=state.plan; const box=$('plan'); box.className='plan'+(p.inside?'':' outside');
+  box.innerHTML=`<b>${p.inside?'Inside the Broadway Plan':'Outside the plan'}</b><div>${p.text}</div><small>Tower slider preset to ~${p.typ} storeys; indicative ceiling ${p.max}. Rental (R3/R4/R5) and social-housing tenure conditions apply to most of the upper range.</small>`;
+  $('ts').value=p.typ; $('ts-o').textContent=p.typ; $('ts-max').textContent=`(plan range up to ~${p.max})`;
+  $('pz').value = !p.inside?'keep' : p.typ>=25?'centre' : p.typ>=18?'apt' : 'R3'; $('pz').onchange();
+}
+function setStatus(t,err){ const s=$('status'); s.textContent=t; s.className='status'+(err?' err':''); }
+
+async function lookup(){
+  const q=$('addr').value.trim(); if(!q) return;
+  setStatus('Searching addresses…'); $('go').disabled=true;
+  try{
+    const c=await geocode(q);
+    if(!c.length){ setStatus('No matching address. Check the civic number and street, e.g. "1477 W Broadway".',true); }
+    else if(c.length===1) await selectSite(c[0]);
+    else { const ul=$('cands'); ul.innerHTML=c.map((x,i)=>`<li data-i="${i}">${x.label}</li>`).join(''); ul.style.display='block'; setStatus('Pick the matching address.'); ul.onclick=e=>{const li=e.target.closest('li'); if(li) selectSite(c[+li.dataset.i]);}; }
+  }catch(e){ setStatus('Lookup failed: '+e.message,true); }
+  $('go').disabled=false;
+}
+$('go').onclick=lookup; $('addr').addEventListener('keydown',e=>e.key==='Enter'&&lookup());
+
+/* sample site: synthetic block near Broadway & Main so the tool works offline */
+$('sample').onclick=()=>{
+  const lon=-123.1002, lat=49.2627; origin={lon,lat};
+  const box=(x0,y0,w,h)=>({type:'Polygon',coordinates:[[[x0,y0],[x0+w,y0],[x0+w,y0+h],[x0,y0+h],[x0,y0]]].map(r=>r.map(([x,y])=>[lon+x/(111320*Math.cos(lat*Math.PI/180)),lat+y/111320]))});
+  state.site={label:'Sample site — Main St at E 10th Ave (synthetic)',lon,lat};
+  state.parcel=box(-16,-20,32,40);
+  state.lots=[{geom:state.parcel,id:'s0',addr:'2400 Main St (sample)'},{geom:box(16,-20,16,40),id:'s1',addr:'2410 Main St (sample)'},{geom:box(32,-20,16,40),id:'s2',addr:'2420 Main St (sample)'},{geom:box(-32,-20,16,40),id:'s3',addr:'2390 Main St (sample)'},{geom:box(-48,-20,16,40),id:'s4',addr:'2380 Main St (sample)'},{geom:box(-16,20,32,36),id:'s5',addr:'2401 Main St (sample)'}];
+  state.selected=[state.lots[0]];
+  state.buildings=[{geom:box(-14,26,28,26),h:12.4},{geom:box(18,-18,12,36),h:9.1},{geom:box(34,-18,12,36),h:6.2},{geom:box(-30,-18,12,36),h:7.5},{geom:box(-46,-18,12,36),h:6.8},{geom:box(-16,-60,32,34),h:15.8},{geom:box(24,30,26,24),h:4.3}].map(b=>({...b,known:true,roof:'Flat',name:'Building'}));
+  state.parks=[{geom:box(-56,30,36,30),name:'Neighbourhood park (sample)'}];
+  state.zoning=[{code:'C-3A',cls:'Commercial'},{code:'RM-4',cls:'Residential'}];
+  state.streets=[{name:'Main St',use:'Arterial',pts:[[70,-160],[70,160]]},{name:'E 10th Ave',use:'Residential',pts:[[-160,-30],[160,-30]]},{name:'E Broadway',use:'Arterial',pts:[[-160,110],[160,110]]}];
+  state.plan=broadwayTier(lon,lat); applyPlan(); rebuild(); renderAssembly(); $('empty').style.display='none'; pushHistory(true);
+  setStatus('Sample block loaded. Geometry is illustrative, not surveyed.');
+};
+
+/* views */
+function setView(which){
+  ['v3d','vaxo','vplan','vshade'].forEach(id=>$(id).classList.toggle('on',id===which));
+  activeCam = (which==='vplan'||which==='vaxo')?orthoCam:camera;
+  viewMode=which;
+  if(which==='vaxo'){ orbit.az=Math.PI/4; orbit.el=Math.atan(Math.SQRT1_2); }
+  if(which==='vshade'){ // Sep 22 solar noon, Vancouver: altitude ≈ 41°, azimuth due south
+    const alt=41*Math.PI/180; sun.position.set(0,Math.sin(alt)*200,Math.cos(alt)*200); sun.intensity=1.6; }
+  else { sun.position.set(90,140,60); sun.intensity=1.35; }
+  placeCamera();
+}
+let viewMode='v3d';
+$('v3d').onclick=()=>setView('v3d'); $('vaxo').onclick=()=>setView('vaxo'); $('vplan').onclick=()=>setView('vplan'); $('vshade').onclick=()=>setView('vshade');
+
+populatePZ(); $('fit').onclick=fitToFSR;
+['ovnone','ovpre','ovh','ovfsr','ovenvp'].forEach(id=>$(id).onclick=()=>setOverlay($(id).dataset.ov));
+resize();
+const _v=new THREE.Vector3();
+function updateSheet(){
+  // north arrow: scene north is -z; rotate by camera azimuth (plan view: north up)
+  const deg = viewMode==='vplan'?0:-orbit.az*180/Math.PI;
+  $('northrot').setAttribute('transform',`rotate(${deg} 20 20)`);
+  // scale bar: metres per 80 px at the target depth
+  const w=main.clientWidth,h=main.clientHeight; let mPerPx;
+  if(activeCam===orthoCam) mPerPx=(orthoCam.right-orthoCam.left)/w; else mPerPx=2*orbit.r*Math.tan(camera.fov/2*Math.PI/180)/h;
+  const raw=mPerPx*80, nice=[5,10,20,25,50,100,200,250,500,1000].reduce((a,b)=>Math.abs(b-raw)<Math.abs(a-raw)?b:a);
+  $('scalebar').querySelector('i').style.width=(nice/mPerPx)+'px'; $('scaletxt').textContent=nice+' m';
+  // height label pinned to leader top
+  const L=state.leader, lab=$('hlabel');
+  if(L){ _v.set(L.x,L.y,L.z).project(activeCam); if(_v.z<1){ lab.style.display='block'; lab.style.left=((_v.x+1)/2*w)+'px'; lab.style.top=((1-_v.y)/2*h)+'px'; lab.textContent=L.exposed&&L.exposed-L.h>0.2?`+${L.h.toFixed(1)} m above datum · ${L.exposed.toFixed(1)} m at low corner`:`+${(L.h||L.y).toFixed(1)} m`; } else lab.style.display='none'; }
+  else lab.style.display='none';
+}
+(function loop(){ requestAnimationFrame(loop); updateSheet(); updateBALabels(); updatePZLabels(); renderer.render(scene,activeCam); })();
+</script>
+</body>
+</html>
