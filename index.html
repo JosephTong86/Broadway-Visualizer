@@ -139,7 +139,7 @@
     <div class="plan" id="plan">Look up an address to see where it sits in the plan.</div>
 
     <h2>Massing</h2>
-    <div class="field"><label for="ctxcolor">Colour existing buildings by</label><select id="ctxcolor" class="sel"><option value="height" selected>Height band</option><option value="zone">Zoning district</option><option value="use">Land-use class</option></select></div>
+    <div class="field"><label for="ctxcolor">Colour existing buildings by</label><select id="ctxcolor" class="sel"><option value="height">Height band</option><option value="zone" selected>Zoning district</option><option value="use">Land-use class</option></select></div>
     <div class="slider"><label>Tower storeys <span id="ts-max"></span></label><input type="range" id="ts" min="0" max="45" value="20"><output id="ts-o">20</output></div>
     <div class="slider"><label>Podium storeys</label><input type="range" id="ps" min="0" max="8" value="4"><output id="ps-o">4</output></div>
     <div class="slider"><label>Floor-to-floor (m)</label><input type="range" id="ff" min="2.8" max="4.5" step="0.1" value="3.0"><output id="ff-o">3.0</output></div>
@@ -225,7 +225,7 @@
   </div>
   <div class="legend">
     <div><i class="sw" style="background:#3B7EAF"></i>Proposed massing</div>
-    <div id="ctxlegend" style="display:contents"><div><i class="sw" style="background:#F4F1EB;border:1px solid #C9D1D8"></i>Existing under 12 m</div><div><i class="sw" style="background:#E6E1D8"></i>Existing 12–30 m</div><div><i class="sw" style="background:#D3CCC0"></i>Existing 30–60 m</div><div><i class="sw" style="background:#BDB4A6"></i>Existing 60 m and up</div></div>
+    <div id="ctxlegend" style="display:contents"><div><i class="sw" style="background:#E6E1D8"></i>Existing buildings, coloured by zoning district once a site loads</div></div>
     <div><i class="sw" style="background:#D5E6C8"></i>Park</div>
     <div><i class="sw" style="background:transparent;border-bottom:2px solid #8C7A5C;height:0;border-radius:0"></i>Contours (major every 5th)</div>
     <div><i class="sw" style="background:transparent;border:2px dashed var(--ring)"></i>Context radius</div>
